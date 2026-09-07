@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-PRODUCT_NAME = "CDC Test Data Analyzer"
+PRODUCT_NAME = "Damper Test Data Analyzer"
 COMPANY_ZH = "富奥东机工减振器有限公司"
 COMPANY_EN = "FAWER-TOKICO SHOCK ABSORBER CO., LTD."
 AUTHOR_DEPARTMENT_ZH = "研发院技术中心"
