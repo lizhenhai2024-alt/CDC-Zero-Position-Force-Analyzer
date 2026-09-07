@@ -233,7 +233,7 @@ def _build_release_gui_classes():
             return controller.pg.mkPen(
                 self._v07_response_marker_color,
                 width=0.85,
-                style=self.QtCore.Qt.PenStyle.DashLine,
+                style=controller.QtCore.Qt.PenStyle.DashLine,
             )
 
         def _text_item_v07(self, text: str, x: float, y: float, anchor=(0, 1)):
