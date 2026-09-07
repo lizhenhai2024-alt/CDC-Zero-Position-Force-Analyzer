@@ -78,12 +78,14 @@ def _build_release_gui_classes():
 
     class MainWindow(BaseMainWindow):
         def __init__(self):
-            super().__init__()
+            # These attributes must exist before BaseMainWindow builds the bilingual UI,
+            # because language callbacks are virtual and may reach _apply_release_identity.
             self.brand_frame = None
             self.brand_logo = None
             self.brand_title = None
             self.brand_company = None
             self.brand_release = None
+            super().__init__()
             self._insert_brand_header()
             self._apply_release_identity()
 
