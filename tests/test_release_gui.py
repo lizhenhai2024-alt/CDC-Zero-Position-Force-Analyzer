@@ -60,6 +60,22 @@ def test_release_ui_defaults_and_professional_controls():
     assert "#dff2df" in window.y_axis.styleSheet().lower()
     assert not window.windowIcon().isNull()
 
+    analysis_tables = (
+        window.summary_table,
+        window.run_table,
+        window.cycle_table,
+        window.sweep_table,
+        window.quality_table,
+    )
+    for table in analysis_tables:
+        style = table.styleSheet().lower()
+        assert table.hasMouseTracking()
+        assert table.viewport().hasMouseTracking()
+        assert "qtableview::item:hover" in style
+        assert "#e8f5e9" in style
+        assert "color: #202020" in style
+        assert "qtableview::item:selected" in style
+
     window.language_combo.setCurrentIndex(window.language_combo.findData("en_US"))
     app.processEvents()
     assert window.windowTitle() == PRODUCT_NAME
