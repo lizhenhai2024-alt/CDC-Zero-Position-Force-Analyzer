@@ -9,7 +9,7 @@ pytest.importorskip("PySide6")
 pytest.importorskip("pyqtgraph")
 
 
-def test_release_ui_defaults_to_chinese_and_has_professional_tools():
+def test_release_ui_defaults_and_professional_controls():
     from PySide6 import QtWidgets
     from cdc_analyzer.gui_release import _build_release_gui_classes
     from cdc_analyzer.product_info import COMPANY_EN, COMPANY_ZH, PRODUCT_NAME
@@ -18,15 +18,23 @@ def test_release_ui_defaults_to_chinese_and_has_professional_tools():
     MainWindow = _build_release_gui_classes()
     window = MainWindow()
 
-    assert window.windowTitle() == PRODUCT_NAME
+    assert window.windowTitle() == PRODUCT_NAME == "Damper Test Data Analyzer"
     assert window.language == "zh_CN"
     assert window.language_combo.currentData() == "zh_CN"
+    assert window.language_box.isHidden()
+    assert window.release_language_toolbar is not None
+    assert window.release_language_label.text() == "界面语言"
+    assert window.language_combo.minimumWidth() >= 160
+
     assert window.help_button.text() == "帮助 / 使用说明"
     assert window.tabs.tabText(window.tabs.indexOf(window.help_page)) == "专业帮助"
     assert "Audi" in window.help_browser.toPlainText()
     assert "总行程 10%" in window.help_browser.toPlainText()
     assert COMPANY_ZH in window.help_browser.toPlainText()
     assert COMPANY_EN in window.help_browser.toPlainText()
+
+    assert window.window_basis.currentData() == "total_stroke"
+    assert window.window_percent.value() == pytest.approx(2.0)
 
     assert window.background_combo.currentData() == "white"
     assert window.zoom_in_button.text() == "放大"
@@ -35,15 +43,57 @@ def test_release_ui_defaults_to_chinese_and_has_professional_tools():
     assert window.pan_button.text() == "平移"
     assert window.reset_view_button.text() == "恢复"
 
-    assert window.brand_title.text() == PRODUCT_NAME
-    assert COMPANY_ZH in window.brand_company.text()
+    for field in (
+        window.x_axis,
+        window.y_axis,
+        window.current_filter,
+        window.run_filter,
+        window.cycle_filter,
+        window.background_combo,
+    ):
+        label = window.plot_form.labelForField(field)
+        assert label is not None
+        assert label.text().strip()
+        assert label.isVisible() or not window.isVisible()
+
+    assert "#dff2df" in window.x_axis.view().styleSheet().lower()
+    assert "#dff2df" in window.y_axis.styleSheet().lower()
+    assert not window.windowIcon().isNull()
 
     window.language_combo.setCurrentIndex(window.language_combo.findData("en_US"))
     app.processEvents()
     assert window.windowTitle() == PRODUCT_NAME
+    assert window.release_language_label.text() == "UI Language"
     assert window.help_button.text() == "Help / User Guide"
     assert window.tabs.tabText(window.tabs.indexOf(window.help_page)) == "Professional Help"
     assert window.background_combo.itemText(window.background_combo.findData("black")) == "Black"
+
+    window.close()
+    app.processEvents()
+
+
+def test_reset_restores_initial_plot_range_in_one_click():
+    from PySide6 import QtWidgets
+    from cdc_analyzer.gui_release import _build_release_gui_classes
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    MainWindow = _build_release_gui_classes()
+    window = MainWindow()
+
+    window.plot_area.clear()
+    plot = window.plot_area.addPlot(row=0, col=0)
+    plot.plot([0.0, 1.0, 2.0, 3.0], [0.0, 2.0, -1.0, 1.0])
+    window._capture_initial_view_ranges()
+    initial = plot.viewRange()
+
+    window._zoom_view(0.70)
+    zoomed = plot.viewRange()
+    assert zoomed[0][1] - zoomed[0][0] < initial[0][1] - initial[0][0]
+
+    window._reset_view()
+    restored = plot.viewRange()
+    assert restored[0] == pytest.approx(initial[0], rel=1e-6, abs=1e-6)
+    assert restored[1] == pytest.approx(initial[1], rel=1e-6, abs=1e-6)
 
     window.close()
     app.processEvents()
