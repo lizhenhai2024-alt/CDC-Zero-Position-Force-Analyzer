@@ -1,6 +1,6 @@
 # CDC Zero Position Force Analyzer
 
-CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 `v0.3.0` 已包含核心算法、PySide6/PyQtGraph 单机 GUI、Windows EXE 构建和可追溯数据质量诊断。
+CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 `v0.4.0` 已包含核心算法、PySide6/PyQtGraph 单机 GUI、Windows EXE 构建、可追溯数据质量诊断和升/降电流 Sweep 对比。
 
 ## 已实现
 
@@ -25,7 +25,9 @@ CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 
 - PNG 图形导出
 - Windows x86-64 单文件 EXE 自动构建
 - Data Quality：按 acquisition block 输出采样点数、采样率、时间间隔、位移范围、载荷范围、电流中位数/标准差及结构性异常
-- Excel 增加 `Data Quality` Sheet
+- GUI 分析前执行 Data Quality preflight；结构性 `Invalid` 输入停止分析
+- Sweep Comparison：保留 Up / Down 结果并输出 `Delta = Down - Up`，不再只看同电流平均值
+- Excel 增加 `Sweep Comparison` 与 `Data Quality` Sheet
 
 ## 数据质量原则
 
@@ -36,7 +38,7 @@ CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 
 - 数据点过少
 - 相邻采样时间出现明显大间隙
 
-采样频率、位移步长等同时作为工程诊断指标输出，但在没有客户限值时不擅自判定合格/不合格。
+采样频率、位移步长以及升/降电流差异同时作为工程诊断指标输出，但在没有客户限值时不擅自判定合格/不合格。
 
 ## 安装开发环境
 
@@ -82,5 +84,7 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 - 显示舍入不改变内部计算精度
 - `Corrected Axial Load = Analysis Axial Load - Gas Force`
 - Audi 10% 是评价窗口总宽度，即中心两侧各 `±5% × Total Stroke`
+- Sweep Comparison 的 `Delta` 定义为 `Down - Up`
+- Sweep 差异只做描述性输出，除非后续提供明确工程或客户限值
 
-详细需求见 `docs/V1.0_REQUIREMENTS.md`，实测验证见 `docs/VALIDATION_2026-09-07.md`。
+详细需求见 `docs/V1.0_REQUIREMENTS.md`；基础实测验证见 `docs/VALIDATION_2026-09-07.md`；V0.4 验证见 `docs/VALIDATION_V0.4_2026-09-07.md`。
