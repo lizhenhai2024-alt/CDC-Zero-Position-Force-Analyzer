@@ -3,8 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .analysis import CURRENT, DISP, LOAD, TIME
-
+TIME = "Running Time"
+DISP = "Axial Displacement"
+LOAD = "Axial Load"
+CURRENT = "CDC 1 Current FB_1"
 REQUIRED_NUMERIC_CHANNELS = [TIME, DISP, LOAD, CURRENT]
 
 
