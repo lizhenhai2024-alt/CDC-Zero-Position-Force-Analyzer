@@ -5,7 +5,8 @@ import sys
 from importlib.resources import files
 
 from .gui import _qt_imports
-from .gui_v05 import _build_gui_classes_v05, _help_html
+from .gui_v05 import _build_gui_classes_v05, _help_html, _t
+from .i18n import tr
 from .product_info import (
     AUTHOR_DEPARTMENT_ZH,
     AUTHOR_NAME_ZH,
@@ -83,7 +84,7 @@ def _build_release_gui_classes():
             super().__init__()
             self._setup_language_toolbar()
             self._configure_release_defaults()
-            self._ensure_plot_form_labels()
+            self._ensure_form_labels()
             self._style_plot_selectors()
             self._apply_release_identity()
             self._capture_initial_view_ranges()
@@ -137,26 +138,55 @@ def _build_release_gui_classes():
             self.window_percent.setValue(2.0)
             self.window_basis.setToolTip("默认按总行程全宽定义评价窗口 / Default: total-stroke full width")
 
-        def _ensure_plot_form_labels(self):
-            self.plot_form.setLabelAlignment(
-                QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
-            )
-            self.plot_form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-            for field in (
-                self.x_axis,
-                self.y_axis,
-                self.current_filter,
-                self.run_filter,
-                self.cycle_filter,
-                self.background_combo,
+        def _ensure_label(self, form, field, text: str, minimum_width: int = 72):
+            label = form.labelForField(field)
+            if label is None:
+                row, _role = form.getWidgetPosition(field)
+                if row >= 0:
+                    label = QtWidgets.QLabel(text)
+                    form.setWidget(row, QtWidgets.QFormLayout.ItemRole.LabelRole, label)
+            if label is None:
+                return
+            label.setText(text)
+            label.setVisible(True)
+            label.setMinimumWidth(minimum_width)
+            font = label.font()
+            font.setBold(True)
+            label.setFont(font)
+
+        def _ensure_form_labels(self):
+            for form in (self.eval_form, self.gas_form, self.plot_form):
+                form.setLabelAlignment(
+                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
+                )
+                form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+
+            for field, key in (
+                (self.profile, "profile"),
+                (self.force, "force"),
+                (self.window_percent, "window"),
+                (self.window_basis, "window_basis"),
+                (self.zero_target, "target_x"),
             ):
-                label = self.plot_form.labelForField(field)
-                if label is not None:
-                    label.setVisible(True)
-                    label.setMinimumWidth(72)
-                    font = label.font()
-                    font.setBold(True)
-                    label.setFont(font)
+                self._ensure_label(self.eval_form, field, tr(self.language, key), 88)
+
+            for field, key in (
+                (self.gas_mode, "mode"),
+                (self.gas_force, "gas_force"),
+                (self.gas_pressure, "gauge_pressure"),
+                (self.rod_dia, "rod_diameter"),
+            ):
+                self._ensure_label(self.gas_form, field, tr(self.language, key), 88)
+
+            for field, text in (
+                (self.x_axis, tr(self.language, "x_axis")),
+                (self.y_axis, tr(self.language, "y_axis")),
+                (self.current_filter, tr(self.language, "current")),
+                (self.run_filter, tr(self.language, "run")),
+                (self.cycle_filter, tr(self.language, "cycle")),
+                (self.background_combo, _t(self.language, "background")),
+            ):
+                self._ensure_label(self.plot_form, field, text, 72)
 
         def _style_plot_selectors(self):
             selection_style = (
@@ -176,7 +206,7 @@ def _build_release_gui_classes():
             if getattr(self, "release_language_label", None) is not None:
                 self.release_language_label.setText("界面语言" if self.language == "zh_CN" else "UI Language")
             if hasattr(self, "plot_form"):
-                self._ensure_plot_form_labels()
+                self._ensure_form_labels()
 
         def _apply_release_identity(self):
             self.setWindowTitle(PRODUCT_NAME)
