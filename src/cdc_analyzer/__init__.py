@@ -4,4 +4,4 @@ from .analysis import AnalyzerConfig, CDCAnalyzer
 from .parser import DataSet, load_test_data
 
 __all__ = ["AnalyzerConfig", "CDCAnalyzer", "DataSet", "load_test_data"]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

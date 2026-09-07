@@ -3,7 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: ["dev-v0.2-gui"]
+    branches: ["dev-*"]
     paths:
       - "src/**"
       - "launcher.py"

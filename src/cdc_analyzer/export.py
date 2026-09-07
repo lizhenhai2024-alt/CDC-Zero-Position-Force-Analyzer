@@ -9,9 +9,10 @@ from openpyxl.utils import get_column_letter
 
 from .analysis import AnalysisResult
 from .formatting import excel_number_format
+from .quality import build_block_quality
 
 
-RESULT_SHEETS = {"Summary", "Run Detail", "Cycle Detail", "Processed Data"}
+RESULT_SHEETS = {"Summary", "Run Detail", "Cycle Detail", "Data Quality", "Processed Data"}
 
 
 def _autosize_sheet(ws) -> None:
@@ -49,10 +50,12 @@ def export_xlsx(result: AnalysisResult, path: str | Path, include_raw: bool = Fa
     path.parent.mkdir(parents=True, exist_ok=True)
 
     settings_df = pd.DataFrame([{"Setting": k, "Value": v} for k, v in result.settings.items()])
+    quality_df = build_block_quality(result.processed)
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         result.summary.to_excel(writer, sheet_name="Summary", index=False)
         result.runs.to_excel(writer, sheet_name="Run Detail", index=False)
         result.cycles.to_excel(writer, sheet_name="Cycle Detail", index=False)
+        quality_df.to_excel(writer, sheet_name="Data Quality", index=False)
         settings_df.to_excel(writer, sheet_name="Settings", index=False)
         if include_raw:
             result.processed.to_excel(writer, sheet_name="Processed Data", index=False)
