@@ -1,68 +1,62 @@
 # CDC Zero Position Force Analyzer
 
-Windows 单机运行的 CDC 减振器试验数据处理工具。
+CDC 减振器台架数据中心行程阻尼力分析工具。当前 `v0.1.0` 已实现可测试的核心算法，GUI 将在下一阶段接入。
 
-## V1.0 目标
+## 已实现
 
-导入 MTS/通用试验数据，自动识别不同 CDC 电流工况，识别复原/压缩方向和完整测量循环，按可配置评价规则提取行程中心附近阻尼力，并支持气体反弹力修正、自由 XY 绘图和 Excel 导出。
+- MTS `.dat` 重复 `Data Acquisition` 数据块解析
+- CSV / XLSX 导入
+- CDC 反馈电流自动归一到 0.1 A，并保留实际中位值/标准差
+- Run 分段、升/降电流 Sweep 标记
+- 基于位移运动方向的复原/压缩识别
+- 完整 Cycle 检测，不把 Block 与 Cycle 直接等同
+- Audi：最后一个完整循环 + 行程中心总行程 10% 窗口 + 复原最大值 / 压缩最小值
+- Window Mean：窗口比例、基准可设置
+- Zero Crossing：目标位移线性插值
+- 气体反弹力恒定修正，原始载荷永不覆盖
+- Summary / Run / Cycle 三级结果
+- `.xlsx` 导出
+- CLI 调试入口
 
-## 当前冻结的核心约定
+## 安装开发环境
 
-- 原始字段：`Running Time`、`Axial Displacement`、`Axial Load`、`CDC 1 Current FB_1`
-- 电流平台自动识别，显示值保留 1 位小数
-- 复原载荷：`> 0`
-- 压缩载荷：`< 0`
-- 运动方向优先根据 `dX/dt` 判断，载荷符号用于一致性校验
-- 原始 `Axial Load` 永不覆盖；气体修正生成独立 `Corrected Axial Load`
-- 同一电流允许出现多个 Run；Run 与 Cycle 分开管理
-- 图形 X/Y 轴字段可自由选择
-- 默认导出 `.xlsx`
+```bash
+python -m pip install -e .[dev]
+pytest -q
+```
 
-## 阻尼力评价规则
+GUI 阶段：
 
-### Audi Profile
+```bash
+python -m pip install -e .[gui]
+```
 
-按客户要求：
+## CLI 示例
 
-- 仅使用最后一个完整测量循环
-- 自动计算该循环行程中心
-- 评价窗口总宽度 = 总行程的 10%
-- 即行程中心两侧各 `±5% × Total Stroke`
-- 复原结果：窗口内最大正载荷 `max(F)`
-- 压缩结果：窗口内最小负载荷 `min(F)`
+Audi 原始载荷：
 
-### Window Mean Profile
+```bash
+cdc-analyzer sample.dat --profile audi
+```
 
-用于常规工程分析：
+气体力修正后评价：
 
-- 中心窗口宽度可配置，例如 `2% / 5% / 10%`
-- 复原、压缩分别按运动方向筛选后求均值
-- 窗口定义方式必须在界面明确标注（按单边振幅或总行程）
+```bash
+cdc-analyzer sample.dat --profile audi --gas-force 200 --corrected --export result.xlsx
+```
 
-### Zero Crossing Profile
+2% 单边振幅窗口均值：
 
-- 目标位置默认 `X = 0 mm`
-- 使用相邻点线性插值计算复原/压缩零位载荷
-- 可作为窗口法的对照和数据质量检查
+```bash
+cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis amplitude
+```
 
-## 气体反弹力修正
+## 重要约定
 
-支持：
+- 复原：`dX/dt > 0`，载荷期望 `> 0`
+- 压缩：`dX/dt < 0`，载荷期望 `< 0`
+- 电流主显示保留 1 位小数
+- `Corrected Axial Load = Analysis Axial Load - Gas Force`
+- Audi 10% 是**评价窗口总宽度**，即中心两侧各 `±5% × Total Stroke`
 
-1. 不修正
-2. 直接输入零位气体反弹力 `Fg`
-3. 根据气体表压和活塞杆直径计算零位气体力
-
-恒定气体力修正：
-
-`F_corrected = F_measured - Fg`
-
-## 计划技术栈
-
-- GUI: PySide6
-- 数值处理: NumPy / Pandas
-- 绘图: PyQtGraph
-- Excel: openpyxl
-- 打包: PyInstaller
-
-详细需求见 `docs/V1.0_REQUIREMENTS.md`。
+详细需求见 `docs/V1.0_REQUIREMENTS.md`，实测验证见 `docs/VALIDATION_2026-09-07.md`。
