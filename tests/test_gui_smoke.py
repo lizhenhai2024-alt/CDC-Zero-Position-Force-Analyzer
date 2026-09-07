@@ -55,3 +55,32 @@ def test_main_window_constructs_and_analyzes_offscreen():
 
     window.close()
     app.processEvents()
+
+
+def test_invalid_time_axis_is_blocked_before_engineering_analysis(monkeypatch):
+    from PySide6 import QtWidgets
+    from cdc_analyzer.gui_v04 import _build_gui_classes_v04
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    MainWindow = _build_gui_classes_v04()
+    window = MainWindow()
+    dataset = _dataset()
+    dataset.data.loc[50, "Running Time"] = dataset.data.loc[49, "Running Time"]
+    window.dataset = dataset
+
+    messages: list[str] = []
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "critical",
+        lambda *args: messages.append(str(args[-1])) or QtWidgets.QMessageBox.StandardButton.Ok,
+    )
+    window.analyze()
+
+    assert window.result is None
+    assert window.quality_status == "Invalid"
+    assert window.quality_table.model().rowCount() == 1
+    assert "non-increasing time" in str(window.quality_frame.iloc[0]["Issues"])
+    assert messages
+
+    window.close()
+    app.processEvents()
