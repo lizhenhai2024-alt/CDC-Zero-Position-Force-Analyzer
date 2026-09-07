@@ -34,18 +34,20 @@ def _dataset():
 
 def test_main_window_constructs_and_analyzes_offscreen():
     from PySide6 import QtWidgets
-    from cdc_analyzer.gui import _build_gui_classes
+    from cdc_analyzer.gui_v04 import _build_gui_classes_v04
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    MainWindow = _build_gui_classes()
+    MainWindow = _build_gui_classes_v04()
     window = MainWindow()
     window.dataset = _dataset()
     window.analyze()
 
-    assert "CDC Zero Position Force Analyzer" in window.windowTitle()
+    assert "v0.4" in window.windowTitle()
     assert window.result is not None
     assert len(window.result.runs) == 1
     assert window.summary_table.model().rowCount() == 1
+    assert window.quality_status == "OK"
+    assert window.quality_table.model().rowCount() == 1
     assert window.x_axis.currentText() == "Axial Displacement"
     assert window.y_axis.selectedItems()[0].text() == "Axial Load"
 
