@@ -1,7 +1,7 @@
-"""CDC Zero Position Force Analyzer core package."""
+"""CDC Zero Position Force Analyzer package."""
 
 from .analysis import AnalyzerConfig, CDCAnalyzer
 from .parser import DataSet, load_test_data
 
 __all__ = ["AnalyzerConfig", "CDCAnalyzer", "DataSet", "load_test_data"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"
