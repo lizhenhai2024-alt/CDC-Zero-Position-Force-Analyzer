@@ -34,6 +34,7 @@ def _release_help_html(language: str) -> str:
           公司官网：{html.escape(OFFICIAL_WEBSITE)}
         </div>
         """
+        updated = base.replace("用于 CDC/电控减振器", "用于电控/半主动减振器")
     else:
         old_title = "CDC Zero Position Force Analyzer — Professional Help"
         new_title = f"{PRODUCT_NAME} — Professional Help"
@@ -46,21 +47,19 @@ def _release_help_html(language: str) -> str:
           Official website: {html.escape(OFFICIAL_WEBSITE)}
         </div>
         """
-    updated = base.replace(old_title, new_title)
+        updated = base.replace("CDC/electronic damper", "electronically controlled / semi-active damper")
+    updated = updated.replace(old_title, new_title)
     marker = f"<h1>{new_title}</h1>"
     return updated.replace(marker, marker + release_box, 1)
 
 
-def _find_bundled_logo():
+def _find_app_icon():
     try:
         asset_dir = files("cdc_analyzer").joinpath("assets")
         for name in (
-            "faw_tokico_logo.svg",
-            "faw_tokico_logo.png",
-            "faw_tokico_logo.webp",
-            "faw_tokico_logo.jpg",
-            "faw_tokico_logo.jpeg",
-            "faw_tokico_logo.ico",
+            "damper_test_data_analyzer.ico",
+            "damper_test_data_analyzer.png",
+            "damper_test_data_analyzer.svg",
         ):
             candidate = asset_dir.joinpath(name)
             if candidate.is_file():
@@ -78,105 +77,155 @@ def _build_release_gui_classes():
 
     class MainWindow(BaseMainWindow):
         def __init__(self):
-            # These attributes must exist before BaseMainWindow builds the bilingual UI,
-            # because language callbacks are virtual and may reach _apply_release_identity.
-            self.brand_frame = None
-            self.brand_logo = None
-            self.brand_title = None
-            self.brand_company = None
-            self.brand_release = None
+            self.release_language_toolbar = None
+            self.release_language_label = None
+            self._initial_view_ranges: list[tuple[tuple[float, float], tuple[float, float]]] = []
             super().__init__()
-            self._insert_brand_header()
+            self._setup_language_toolbar()
+            self._configure_release_defaults()
+            self._ensure_plot_form_labels()
+            self._style_plot_selectors()
             self._apply_release_identity()
+            self._capture_initial_view_ranges()
 
-        def _insert_brand_header(self):
-            splitter = self.centralWidget().findChild(QtWidgets.QSplitter)
-            if splitter is None or splitter.count() < 1:
-                return
-            scroll = splitter.widget(0)
-            if not isinstance(scroll, QtWidgets.QScrollArea) or scroll.widget() is None:
-                return
-            host_layout = scroll.widget().layout()
-            if host_layout is None:
-                return
+        def _setup_language_toolbar(self):
+            language_layout = self.language_box.layout()
+            if language_layout is not None:
+                language_layout.removeWidget(self.language_combo)
+                language_layout.removeWidget(self.help_button)
+            self.language_box.hide()
 
-            frame = QtWidgets.QFrame()
-            frame.setObjectName("brandHeader")
-            frame.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
-            layout = QtWidgets.QHBoxLayout(frame)
-            layout.setContentsMargins(10, 9, 10, 9)
-            layout.setSpacing(10)
+            toolbar = QtWidgets.QToolBar()
+            toolbar.setObjectName("releaseLanguageToolbar")
+            toolbar.setMovable(False)
+            toolbar.setFloatable(False)
+            toolbar.setMinimumHeight(46)
+            toolbar.setContentsMargins(8, 3, 8, 3)
 
-            logo = QtWidgets.QLabel()
-            logo.setMinimumSize(150, 58)
-            logo.setMaximumSize(190, 72)
-            logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            logo_path = _find_bundled_logo()
-            if logo_path:
-                pixmap = QtGui.QPixmap(logo_path)
-                if not pixmap.isNull():
-                    logo.setPixmap(
-                        pixmap.scaled(
-                            180,
-                            68,
-                            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                            QtCore.Qt.TransformationMode.SmoothTransformation,
-                        )
-                    )
-                    self.setWindowIcon(QtGui.QIcon(pixmap))
-                else:
-                    logo.setText("FAWER-TOKICO")
-            else:
-                logo.setText("FAWER-TOKICO")
-            layout.addWidget(logo)
+            label = QtWidgets.QLabel()
+            label_font = label.font()
+            label_font.setBold(True)
+            label_font.setPointSize(max(10, label_font.pointSize()))
+            label.setFont(label_font)
+            label.setMinimumWidth(86)
+            toolbar.addWidget(label)
 
-            text_box = QtWidgets.QVBoxLayout()
-            title = QtWidgets.QLabel(PRODUCT_NAME)
-            title_font = title.font()
-            title_font.setBold(True)
-            title_font.setPointSize(max(11, title_font.pointSize() + 2))
-            title.setFont(title_font)
-            title.setWordWrap(True)
-            company = QtWidgets.QLabel()
-            company.setWordWrap(True)
-            release = QtWidgets.QLabel()
-            release.setWordWrap(True)
-            text_box.addWidget(title)
-            text_box.addWidget(company)
-            text_box.addWidget(release)
-            layout.addLayout(text_box, 1)
+            combo_font = self.language_combo.font()
+            combo_font.setPointSize(max(10, combo_font.pointSize()))
+            self.language_combo.setFont(combo_font)
+            self.language_combo.setMinimumWidth(160)
+            self.language_combo.setMinimumHeight(32)
+            toolbar.addWidget(self.language_combo)
 
-            host_layout.insertWidget(0, frame)
-            self.brand_frame = frame
-            self.brand_logo = logo
-            self.brand_title = title
-            self.brand_company = company
-            self.brand_release = release
+            spacer = QtWidgets.QWidget()
+            spacer.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Preferred,
+            )
+            toolbar.addWidget(spacer)
+            self.help_button.setMinimumHeight(32)
+            toolbar.addWidget(self.help_button)
+            self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, toolbar)
+
+            self.release_language_toolbar = toolbar
+            self.release_language_label = label
+
+        def _configure_release_defaults(self):
+            index = self.window_basis.findData("total_stroke")
+            if index >= 0:
+                self.window_basis.setCurrentIndex(index)
+            self.window_percent.setValue(2.0)
+            self.window_basis.setToolTip("默认按总行程全宽定义评价窗口 / Default: total-stroke full width")
+
+        def _ensure_plot_form_labels(self):
+            self.plot_form.setLabelAlignment(
+                QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
+            )
+            self.plot_form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+            for field in (
+                self.x_axis,
+                self.y_axis,
+                self.current_filter,
+                self.run_filter,
+                self.cycle_filter,
+                self.background_combo,
+            ):
+                label = self.plot_form.labelForField(field)
+                if label is not None:
+                    label.setVisible(True)
+                    label.setMinimumWidth(72)
+                    font = label.font()
+                    font.setBold(True)
+                    label.setFont(font)
+
+        def _style_plot_selectors(self):
+            selection_style = (
+                "QAbstractItemView::item:selected {"
+                "background-color:#dff2df; color:#202020;"
+                "}"
+            )
+            self.x_axis.view().setStyleSheet(selection_style)
+            self.y_axis.setStyleSheet(
+                "QListWidget::item:selected { background-color:#dff2df; color:#202020; }"
+            )
 
         def _apply_v05_language(self):
             super()._apply_v05_language()
             if hasattr(self, "help_browser"):
                 self._apply_release_identity()
+            if getattr(self, "release_language_label", None) is not None:
+                self.release_language_label.setText("界面语言" if self.language == "zh_CN" else "UI Language")
+            if hasattr(self, "plot_form"):
+                self._ensure_plot_form_labels()
 
         def _apply_release_identity(self):
             self.setWindowTitle(PRODUCT_NAME)
+            icon_path = _find_app_icon()
+            if icon_path:
+                icon = QtGui.QIcon(icon_path)
+                if not icon.isNull():
+                    self.setWindowIcon(icon)
             if hasattr(self, "help_browser"):
                 self.help_browser.setHtml(_release_help_html(self.language))
-            if self.brand_title is None:
+            if getattr(self, "release_language_label", None) is not None:
+                self.release_language_label.setText("界面语言" if self.language == "zh_CN" else "UI Language")
+
+        def refresh_plot(self):
+            super().refresh_plot()
+            if hasattr(self, "_initial_view_ranges"):
+                self._capture_initial_view_ranges()
+
+        def _capture_initial_view_ranges(self):
+            plots = self._plot_items()
+            if not plots:
+                self._initial_view_ranges = []
                 return
-            self.brand_title.setText(PRODUCT_NAME)
-            if self.language == "zh_CN":
-                self.brand_company.setText(f"{COMPANY_ZH}\n{COMPANY_EN}")
-                self.brand_release.setText(
-                    f"编制：{AUTHOR_DEPARTMENT_ZH}  {AUTHOR_NAME_ZH}\n"
-                    f"{RELEASE_DATE}  {RELEASE_EDITION_ZH}"
+            for plot in plots:
+                plot.enableAutoRange(x=True, y=True)
+                plot.autoRange()
+            self._initial_view_ranges = []
+            for plot in plots:
+                view_range = plot.viewRange()
+                self._initial_view_ranges.append(
+                    (
+                        (float(view_range[0][0]), float(view_range[0][1])),
+                        (float(view_range[1][0]), float(view_range[1][1])),
+                    )
                 )
-            else:
-                self.brand_company.setText(f"{COMPANY_EN}\n{COMPANY_ZH}")
-                self.brand_release.setText(
-                    f"Prepared by: {AUTHOR_DEPARTMENT_ZH} / {AUTHOR_NAME_ZH}\n"
-                    f"{RELEASE_DATE}  {RELEASE_EDITION_EN}"
-                )
+                plot.getViewBox().disableAutoRange()
+
+        def _reset_view(self):
+            plots = self._plot_items()
+            if not plots:
+                return
+            if len(self._initial_view_ranges) != len(plots):
+                self._capture_initial_view_ranges()
+            if len(self._initial_view_ranges) != len(plots):
+                return
+            for plot, (x_range, y_range) in zip(plots, self._initial_view_ranges):
+                view_box = plot.getViewBox()
+                view_box.disableAutoRange()
+                view_box.setRange(xRange=x_range, yRange=y_range, padding=0)
 
     return MainWindow
 
