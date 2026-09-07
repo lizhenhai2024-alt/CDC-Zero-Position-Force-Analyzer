@@ -6,6 +6,7 @@ on:
     branches: ["dev-*"]
     paths:
       - "src/**"
+      - "tools/**"
       - "launcher.py"
       - "pyproject.toml"
       - ".github/workflows/build-windows.yml"
@@ -18,13 +19,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Fetch official FAWER-TOKICO logo
+        run: python tools/fetch_official_logo.py
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[gui]" pyinstaller
       - name: Build executable
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name CDC_Test_Data_Analyzer --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters launcher.py
+          pyinstaller --noconfirm --clean --windowed --onefile --name CDC_Test_Data_Analyzer --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters --add-data "src/cdc_analyzer/assets;cdc_analyzer/assets" launcher.py
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
