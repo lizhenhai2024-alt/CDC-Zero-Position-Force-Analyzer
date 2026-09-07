@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .analysis import AnalyzerConfig, CDCAnalyzer, EvaluationProfile
 from .export import export_xlsx
+from .formatting import dataframe_formatters
 from .parser import load_test_data
 
 
@@ -34,7 +35,7 @@ def main() -> int:
     )
     dataset = load_test_data(args.input)
     result = CDCAnalyzer(config).analyze(dataset)
-    print(result.summary.to_string(index=False))
+    print(result.summary.to_string(index=False, formatters=dataframe_formatters(result.summary)))
     if args.export:
         out = export_xlsx(result, args.export)
         print(f"Exported: {out}")
