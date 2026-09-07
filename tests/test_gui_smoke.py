@@ -48,6 +48,7 @@ def test_main_window_constructs_and_analyzes_offscreen():
     assert window.summary_table.model().rowCount() == 1
     assert window.quality_status == "OK"
     assert window.quality_table.model().rowCount() == 1
+    assert window.sweep_table.model().rowCount() == 1
     assert window.x_axis.currentText() == "Axial Displacement"
     assert window.y_axis.selectedItems()[0].text() == "Axial Load"
 
