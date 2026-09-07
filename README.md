@@ -1,8 +1,13 @@
-# CDC Zero Position Force Analyzer
+# CDC Test Data Analyzer
 
-CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 `v0.4.0` 已包含核心算法、PySide6/PyQtGraph 单机 GUI、Windows EXE 构建、可追溯数据质量诊断和升/降电流 Sweep 对比。
+富奥东机工减振器有限公司（FAWER-TOKICO SHOCK ABSORBER CO., LTD.）CDC / 电控减振器台架数据分析工具。
 
-## 已实现
+- 编制：研发院技术中心　李振海
+- 发布日期：2026/9/7
+- 发布：第1版
+- Python package version：`1.0.0`
+
+## 核心功能
 
 - MTS `.dat` 重复 `Data Acquisition` 数据块解析
 - CSV / XLSX 导入
@@ -15,19 +20,23 @@ CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 
 - Zero Crossing：目标位移线性插值
 - 气体反弹力恒定修正，原始载荷永不覆盖
 - Summary / Run / Cycle 三级结果
-- `.xlsx` 导出
-- CLI 调试入口
-- PySide6 / PyQtGraph GUI
+- Data Quality：按 acquisition block 输出采样点数、采样率、时间间隔、位移范围、载荷范围、电流中位数/标准差及结构性异常
+- GUI 分析前执行 Data Quality preflight；结构性 `Invalid` 输入停止分析
+- Sweep Comparison：保留 Up / Down 结果并输出 `Delta = Down - Up`
 - X 轴字段自由选择、Y 轴多字段选择
 - Current / Run / Cycle 图形筛选
 - 不同量纲自动上下分图并共享 X 轴
 - Audi 10% 评价窗口与复原/压缩峰值点可视化
-- PNG 图形导出
+- 图形背景：白色、黑色、浅灰、深灰及自定义颜色
+- 图形工具：放大、缩小、框选放大、平移、恢复、滚轮缩放
+- 中文 / English 界面实时切换，**默认中文**
+- 专业帮助页面：使用流程、评价算法、符号约定、气体力修正、Data Quality、Sweep、图形工具、常见问题及工程边界
+- `.xlsx` 与 PNG 导出
 - Windows x86-64 单文件 EXE 自动构建
-- Data Quality：按 acquisition block 输出采样点数、采样率、时间间隔、位移范围、载荷范围、电流中位数/标准差及结构性异常
-- GUI 分析前执行 Data Quality preflight；结构性 `Invalid` 输入停止分析
-- Sweep Comparison：保留 Up / Down 结果并输出 `Delta = Down - Up`，不再只看同电流平均值
-- Excel 增加 `Sweep Comparison` 与 `Data Quality` Sheet
+
+## 品牌信息
+
+Windows 构建流程从富奥东机工减振器有限公司官方网站 `https://www.faw-tokico.com/` 自动获取官方 Logo，并将获取到的 Logo 与来源信息打包进入 EXE。构建阶段会记录实际 Logo 资源 URL，避免使用第三方网站图片。
 
 ## 数据质量原则
 
@@ -43,14 +52,8 @@ CDC 减振器台架数据中心行程阻尼力分析工具。当前开发版本 
 ## 安装开发环境
 
 ```bash
-python -m pip install -e .[dev]
+python -m pip install -e ".[dev,gui]"
 pytest -q
-```
-
-GUI：
-
-```bash
-python -m pip install -e .[gui]
 cdc-analyzer-gui
 ```
 
