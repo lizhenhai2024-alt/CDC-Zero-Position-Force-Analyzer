@@ -88,16 +88,16 @@ def _first_level_crossing(
     start_idx: int = 0,
     direction: int = 0,
 ) -> float | None:
-    """Return the first linearly interpolated threshold crossing."""
     for i in range(max(0, start_idx), len(y) - 1):
         y0, y1 = float(y[i]), float(y[i + 1])
-        if direction > 0 and max(y0, y1) < target:
+        if direction > 0 and y1 <= y0:
             continue
-        if direction < 0 and min(y0, y1) > target:
+        if direction < 0 and y1 >= y0:
             continue
         if (y0 - target) * (y1 - target) <= 0 and y1 != y0:
             q = (target - y0) / (y1 - y0)
-            return float(t[i] + q * (t[i + 1] - t[i]))
+            if 0.0 <= q <= 1.0:
+                return float(t[i] + q * (t[i + 1] - t[i]))
     return None
 
 
@@ -109,9 +109,10 @@ def _numeric_rows(path: Path, columns: int = 4) -> np.ndarray:
             continue
         try:
             values = [float(parts[i].strip()) for i in range(columns)]
-        except ValueError:
+        except (TypeError, ValueError):
             continue
-        rows.append(values)
+        if all(np.isfinite(values)):
+            rows.append(values)
     if len(rows) < 8:
         raise ValueError("Headerless numeric DAT does not contain enough four-channel numeric rows")
     return np.asarray(rows, dtype=float)
@@ -124,14 +125,15 @@ def _infer_headerless_channels(matrix: np.ndarray) -> tuple[pd.DataFrame, dict[s
     time_candidates: list[tuple[float, float, int]] = []
     for col in range(4):
         d = np.diff(matrix[:, col])
+        positive = d[np.isfinite(d) & (d > 0)]
         positive_ratio = float(np.mean(d > 0)) if len(d) else 0.0
-        if positive_ratio >= 0.98:
-            mean_d = float(np.mean(d))
-            cv = float(np.std(d) / max(abs(mean_d), 1e-12))
-            time_candidates.append((positive_ratio, -cv, col))
+        if positive_ratio >= 0.98 and len(positive):
+            median_step = float(np.median(positive))
+            cv = float(np.std(positive) / max(abs(np.mean(positive)), 1e-12))
+            time_candidates.append((median_step, cv, col))
     if not time_candidates:
         raise ValueError("Could not infer a monotonically increasing time channel")
-    time_col = max(time_candidates)[2]
+    time_col = min(time_candidates, key=lambda item: (item[0], item[1]))[2]
 
     remaining = [col for col in range(4) if col != time_col]
     current_candidates: list[tuple[float, float, int]] = []
@@ -140,10 +142,10 @@ def _infer_headerless_channels(matrix: np.ndarray) -> tuple[pd.DataFrame, dict[s
         q99 = float(np.quantile(np.abs(values), 0.99))
         span = float(np.ptp(values))
         if q99 <= 10.0 and span >= 0.02:
-            current_candidates.append((q99, span, col))
+            current_candidates.append((q99, -span, col))
     if not current_candidates:
         raise ValueError("Could not infer a current feedback channel")
-    current_col = min(current_candidates, key=lambda item: item[0])[2]
+    current_col = min(current_candidates)[2]
 
     remaining = [col for col in remaining if col != current_col]
     scales = sorted((float(np.quantile(np.abs(matrix[:, col]), 0.95)), col) for col in remaining)
@@ -165,13 +167,12 @@ def _infer_headerless_channels(matrix: np.ndarray) -> tuple[pd.DataFrame, dict[s
         "load_column_1based": load_col + 1,
         "current_column_1based": current_col + 1,
         "displacement_column_1based": displacement_col + 1,
-        "inference": "heuristic",
+        "inference": "heuristic_monotonic_step_scale",
     }
     return frame, mapping
 
 
 def load_dynamic_test_data(path: str | Path) -> DataSet:
-    """Load ordinary MTS/tabular data or infer a headerless four-channel response DAT."""
     source = Path(path)
     try:
         return load_test_data(source)
@@ -193,14 +194,11 @@ def _detect_current_events(frame: pd.DataFrame, config: ResponseConfig) -> list[
     current = frame[CURRENT].to_numpy(float)
     if len(current) < 8:
         return []
-
-    padded = np.pad(current, (1, 1), mode="edge")
-    smooth = np.convolve(padded, np.ones(3) / 3.0, mode="valid")
+    smooth = pd.Series(current).rolling(3, center=True, min_periods=1).mean().to_numpy()
     slope = np.abs(np.gradient(smooth, t))
     peak = float(np.nanmax(slope))
     if not np.isfinite(peak) or peak <= 0:
         return []
-
     mask = slope >= config.event_derivative_fraction * peak
     groups: list[list[int]] = []
     active: list[int] = []
@@ -212,8 +210,7 @@ def _detect_current_events(frame: pd.DataFrame, config: ResponseConfig) -> list[
             active = []
     if active:
         groups.append(active)
-
-    candidates = [max(group, key=lambda index: slope[index]) for group in groups]
+    candidates = [max(group, key=lambda i: slope[i]) for group in groups]
     events: list[int] = []
     for candidate in candidates:
         if not events or t[candidate] - t[events[-1]] >= config.min_event_separation_s:
@@ -230,15 +227,15 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
     if not 0 < config.end_average_fraction <= 0.5:
         raise ValueError("End-average fraction must be in (0, 0.5]")
 
-    data = (
-        dataset.data[[TIME, DISP, LOAD, CURRENT]]
-        .dropna()
-        .sort_values(TIME)
-        .reset_index(drop=True)
-        .copy()
-    )
+    cols = [TIME, DISP, LOAD, CURRENT]
+    missing = [c for c in cols if c not in dataset.data.columns]
+    if missing:
+        raise ValueError(f"Missing dynamic response channel(s): {', '.join(missing)}")
+    data = dataset.data[cols].dropna().sort_values(TIME).reset_index(drop=True).copy()
     if len(data) < 8:
         raise ValueError("Response-time analysis requires at least 8 valid samples")
+    if np.any(np.diff(data[TIME].to_numpy(float)) <= 0):
+        raise ValueError("Response-time data requires strictly increasing time")
 
     t = data[TIME].to_numpy(float)
     x = data[DISP].to_numpy(float)
@@ -259,7 +256,6 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
         segment = data.iloc[start : end + 1].reset_index(drop=True)
         if len(segment) < 10:
             continue
-
         ts = segment[TIME].to_numpy(float)
         xs = segment[DISP].to_numpy(float)
         fs = segment[LOAD].to_numpy(float)
@@ -274,52 +270,59 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
             continue
 
         trigger_current = current_start + config.trigger_fraction * delta_current
-        current_direction = 1 if delta_current > 0 else -1
-        t0 = _first_level_crossing(ts, currents, trigger_current, direction=current_direction)
+        t0 = _first_level_crossing(
+            ts, currents, trigger_current, direction=1 if delta_current > 0 else -1
+        )
         if t0 is None:
             continue
-
         force_0 = _interpolate_time(ts, fs, t0)
         x_0 = _interpolate_time(ts, xs, t0)
         velocity_0 = _interpolate_time(ts, velocities, t0)
+
         end_n = max(3, int(ceil(config.end_average_fraction * n)))
         force_100 = float(np.mean(fs[-end_n:]))
         delta_force = force_100 - force_0
+        if abs(delta_force) < 1e-12:
+            continue
         force_direction = 1 if delta_force > 0 else -1
-        start_idx = int(np.searchsorted(ts, t0, side="left"))
 
+        after_mask = ts > t0
+        response_t = np.concatenate(([t0], ts[after_mask]))
+        response_f = np.concatenate(([force_0], fs[after_mask]))
         thresholds: dict[float, tuple[float, float | None]] = {}
         for fraction in (0.01, 0.63, 0.90):
-            force_target = force_0 + fraction * delta_force
+            target = force_0 + fraction * delta_force
             crossing = _first_level_crossing(
-                ts,
-                fs,
-                force_target,
-                start_idx=start_idx,
-                direction=force_direction,
+                response_t, response_f, target, start_idx=0, direction=force_direction
             )
-            thresholds[fraction] = (force_target, crossing)
+            thresholds[fraction] = (target, crossing)
 
         def elapsed_ms(crossing: float | None) -> float:
-            return float((crossing - t0) * 1000.0) if crossing is not None else float("nan")
+            if crossing is None or crossing < t0:
+                return float("nan")
+            return float((crossing - t0) * 1000.0)
 
         t1 = thresholds[0.01][1]
         t63 = thresholds[0.63][1]
         t90 = thresholds[0.90][1]
-        dt63_s = t63 - t0 if t63 is not None else float("nan")
-        dt90_s = t90 - t0 if t90 is not None else float("nan")
+        dt63_s = (t63 - t0) if t63 is not None else float("nan")
+        dt90_s = (t90 - t0) if t90 is not None else float("nan")
         gradient63 = (
-            abs(thresholds[0.63][0] - force_0) / dt63_s if np.isfinite(dt63_s) and dt63_s > 0 else float("nan")
+            abs(thresholds[0.63][0] - force_0) / dt63_s
+            if np.isfinite(dt63_s) and dt63_s > 0
+            else float("nan")
         )
         gradient90 = (
-            abs(thresholds[0.90][0] - force_0) / dt90_s if np.isfinite(dt90_s) and dt90_s > 0 else float("nan")
+            abs(thresholds[0.90][0] - force_0) / dt90_s
+            if np.isfinite(dt90_s) and dt90_s > 0
+            else float("nan")
         )
 
         sample_rate = _sample_rate_hz(segment)
         issues: list[str] = []
-        if config.standard == ResponseStandard.AUDI and sample_rate < 4000.0:
+        if config.standard == ResponseStandard.AUDI and np.isfinite(sample_rate) and sample_rate < 4000.0:
             issues.append(f"sample rate below Audi 4 kHz ({sample_rate:.2f} Hz)")
-        if any(thresholds[fraction][1] is None for fraction in thresholds):
+        if any(v[1] is None for v in thresholds.values()):
             issues.append("one or more force thresholds not crossed")
         local = segment[segment[TIME].between(t0 - 0.003, t0 + 0.003)][VELOCITY].abs()
         if len(local) >= 3 and float(local.mean()) > 0:
@@ -371,7 +374,6 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
     events_frame = pd.DataFrame(rows)
     if events_frame.empty:
         raise ValueError("No valid current-step response event could be evaluated")
-
     settings = {
         "Analysis Mode": "Response Time",
         "OEM Profile": config.standard.value,
@@ -380,7 +382,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
         "t90 Limit ms": config.t90_limit_ms,
         "Source Format": dataset.source_format,
         "Source File": dataset.source_path.name,
-        "Inferred Mapping": dataset.metadata.get("inferred_mapping"),
+        "Inferred Mapping": (dataset.metadata or {}).get("inferred_mapping"),
     }
     return ResponseAnalysisResult(data, events_frame, settings, dataset.source_path)
 
@@ -391,23 +393,31 @@ def _zero_crossings_for_direction(
     target_mm: float = 0.0,
     force_column: str = LOAD,
 ) -> tuple[list[float], list[float], list[float]]:
+    frame = frame.sort_values(TIME)
     t = frame[TIME].to_numpy(float)
     x = frame[DISP].to_numpy(float)
     force = frame[force_column].to_numpy(float)
+    if len(frame) < 2:
+        return [], [], []
     velocity = np.gradient(x, t) / 1000.0
     wanted = 1 if direction == "Rebound" else -1
     forces: list[float] = []
     speeds: list[float] = []
     times: list[float] = []
     for i in range(len(x) - 1):
-        if (x[i] - target_mm) * (x[i + 1] - target_mm) > 0 or x[i] == x[i + 1]:
+        a, b = x[i] - target_mm, x[i + 1] - target_mm
+        if a == 0 and i > 0:
             continue
-        local_velocity = (velocity[i] + velocity[i + 1]) / 2.0
-        if local_velocity * wanted <= 0:
+        if a * b > 0 or x[i] == x[i + 1]:
             continue
         q = (target_mm - x[i]) / (x[i + 1] - x[i])
+        if not 0 <= q <= 1:
+            continue
+        local_velocity = float(velocity[i] + q * (velocity[i + 1] - velocity[i]))
+        if local_velocity * wanted <= 0:
+            continue
         forces.append(float(force[i] + q * (force[i + 1] - force[i])))
-        speeds.append(abs(float(velocity[i] + q * (velocity[i + 1] - velocity[i]))))
+        speeds.append(abs(local_velocity))
         times.append(float(t[i] + q * (t[i + 1] - t[i])))
     return forces, speeds, times
 
@@ -417,298 +427,265 @@ def _assign_sweep_directions(labels: list[float]) -> list[str]:
     for i, label in enumerate(labels):
         previous = label - labels[i - 1] if i else 0.0
         following = labels[i + 1] - label if i + 1 < len(labels) else 0.0
-        delta = previous if previous else following
-        directions.append("Up" if delta > 0 else "Down" if delta < 0 else "Hold")
+        delta = previous if abs(previous) > 1e-12 else following
+        directions.append("Up" if delta >= 0 else "Down")
     return directions
 
 
-def _bmw_hysteresis(dataset: DataSet, config: HysteresisConfig) -> HysteresisAnalysisResult:
-    data = dataset.data.copy().sort_values(["Block ID", TIME]).reset_index(drop=True)
-    block_groups = list(data.groupby("Block ID", sort=False))
-    labels = [round(float(np.median(block[CURRENT])), config.current_decimals) for _, block in block_groups]
-    sweep_directions = _assign_sweep_directions(labels)
+def _prepare_blocks(data: pd.DataFrame) -> list[tuple[int, pd.DataFrame]]:
+    if "Block ID" in data.columns:
+        return [(int(block_id), block.copy()) for block_id, block in data.groupby("Block ID", sort=False)]
+    return [(1, data.copy())]
 
+
+def _bmw_hysteresis(dataset: DataSet, config: HysteresisConfig) -> HysteresisAnalysisResult:
+    data = dataset.data.copy()
+    blocks = _prepare_blocks(data)
+    labels = [
+        round(float(np.median(block[CURRENT])), config.current_decimals)
+        for _, block in blocks
+    ]
+    sweeps = _assign_sweep_directions(labels)
     run_rows: list[dict[str, object]] = []
-    for (block_id, block), current_label, sweep in zip(block_groups, labels, sweep_directions):
+    for order, ((block_id, block), label, sweep) in enumerate(zip(blocks, labels, sweeps), start=1):
+        actual = float(np.median(block[CURRENT]))
+        sample_rate = _sample_rate_hz(block)
         for motion in ("Rebound", "Compression"):
             forces, speeds, times = _zero_crossings_for_direction(block, motion, config.zero_target_mm)
             if not forces:
                 continue
             run_rows.append(
                 {
+                    "Block Order": order,
                     "Block ID": block_id,
-                    "Current Label A": current_label,
-                    "Current Actual A": float(np.median(block[CURRENT])),
+                    "Current Label A": label,
+                    "Actual Current A": actual,
                     "Sweep Direction": sweep,
                     "Direction": motion,
                     "Force N": float(np.mean(forces)),
-                    "Force SD N": float(np.std(forces, ddof=1)) if len(forces) > 1 else 0.0,
+                    "Abs Force N": float(np.mean(np.abs(forces))),
                     "Speed m/s": float(np.mean(speeds)),
                     "Crossing Count": len(forces),
-                    "Crossing Time s": float(np.mean(times)),
+                    "Sample Rate Hz": sample_rate,
                 }
             )
     runs = pd.DataFrame(run_rows)
     if runs.empty:
-        raise ValueError("No zero-displacement hysteresis measurement points were found")
+        raise ValueError("No center-stroke BMW hysteresis values could be extracted")
 
     summary_rows: list[dict[str, object]] = []
-    for (current_label, motion), group in runs.groupby(["Current Label A", "Direction"], sort=True):
+    for (current, motion), group in runs.groupby(["Current Label A", "Direction"], sort=True):
         up = group[group["Sweep Direction"] == "Up"]
         down = group[group["Sweep Direction"] == "Down"]
         if up.empty or down.empty:
             continue
-        increasing_force = float(up["Force N"].mean())
-        decreasing_force = float(down["Force N"].mean())
-        motion_sign = 1.0 if motion == "Rebound" else -1.0
-        increasing_damping = increasing_force * motion_sign
-        decreasing_damping = decreasing_force * motion_sign
-        reference = (increasing_damping + decreasing_damping) / 2.0
-        hysteresis_n = abs(increasing_damping - decreasing_damping)
+        f_up = float(up["Force N"].mean())
+        f_down = float(down["Force N"].mean())
+        abs_up = abs(f_up)
+        abs_down = abs(f_down)
+        reference = 0.5 * (abs_up + abs_down)
+        hysteresis_n = abs(abs_down - abs_up)
         hysteresis_pct = hysteresis_n / reference * 100.0 if reference > 0 else float("nan")
         if config.limit_percent is None:
             status = "Not evaluated"
-        elif np.isfinite(hysteresis_pct):
-            status = "PASS" if hysteresis_pct <= config.limit_percent else "FAIL"
         else:
-            status = "Invalid"
+            status = "PASS" if hysteresis_pct <= config.limit_percent else "FAIL"
         summary_rows.append(
             {
-                "Current A": current_label,
+                "OEM": "BMW",
+                "Current A": float(current),
                 "Direction": motion,
-                "Increasing Force N": increasing_force,
-                "Decreasing Force N": decreasing_force,
+                "Up Force N": f_up,
+                "Down Force N": f_down,
                 "Reference Damping Force N": reference,
                 "Hysteresis N": hysteresis_n,
                 "Hysteresis %": hysteresis_pct,
-                "Speed m/s": float(pd.concat([up["Speed m/s"], down["Speed m/s"]]).mean()),
                 "Limit %": config.limit_percent,
                 "Status": status,
             }
         )
     summary = pd.DataFrame(summary_rows)
-    if summary.empty:
-        raise ValueError("No paired increasing/decreasing current levels were found")
-
     settings = {
         "Analysis Mode": "Hysteresis",
         "OEM Profile": "bmw",
-        "Stroke Requirement": "±50 mm",
-        "Nominal Speeds m/s": "0.050 / 0.131 / 0.262 / 0.524 / 1.048",
-        "Nominal Current Step A": "±0.2",
         "Zero Target mm": config.zero_target_mm,
+        "Current Decimals": config.current_decimals,
         "Limit %": config.limit_percent,
         "Source File": dataset.source_path.name,
     }
     return HysteresisAnalysisResult(data, runs, summary, settings, dataset.source_path)
 
 
-def _moving_average(values: np.ndarray, radius: int) -> np.ndarray:
-    if radius <= 0 or len(values) < 3:
-        return values.astype(float, copy=True)
-    radius = min(radius, max(1, (len(values) - 1) // 2))
-    padded = np.pad(values.astype(float), (radius, radius), mode="edge")
-    kernel = np.ones(2 * radius + 1, dtype=float) / (2 * radius + 1)
-    return np.convolve(padded, kernel, mode="valid")
+def _estimate_samples_per_stroke(block: pd.DataFrame) -> int:
+    t = block[TIME].to_numpy(float)
+    x = block[DISP].to_numpy(float)
+    if len(block) < 5:
+        return max(1, len(block))
+    dx = np.gradient(x, t)
+    signs = np.sign(dx)
+    reversals = np.flatnonzero(signs[:-1] * signs[1:] < 0)
+    if len(reversals) >= 2:
+        return max(3, int(round(float(np.median(np.diff(reversals))))))
+    return max(3, len(block) // 2)
 
 
-def _samples_per_half_stroke(frame: pd.DataFrame) -> int:
-    t = frame[TIME].to_numpy(float)
-    x = frame[DISP].to_numpy(float)
-    if len(x) < 5:
-        return max(1, len(x) // 2)
-    velocity = np.gradient(x, t)
-    sign = np.sign(velocity)
-    for i in range(1, len(sign)):
-        if sign[i] == 0:
-            sign[i] = sign[i - 1]
-    reversal = np.where(sign[:-1] * sign[1:] < 0)[0] + 1
-    if len(reversal) >= 2:
-        return max(1, int(round(float(np.median(np.diff(reversal))))))
-    return max(1, len(x) // 2)
+def _smooth_audi_block(block: pd.DataFrame, fraction_per_side: float) -> pd.DataFrame:
+    out = block.copy().sort_values(TIME).reset_index(drop=True)
+    samples_per_stroke = _estimate_samples_per_stroke(out)
+    side = max(1, int(ceil(fraction_per_side * samples_per_stroke)))
+    window = 2 * side + 1
+    out["Audi Smoothed Load"] = out[LOAD].rolling(window, center=True, min_periods=1).mean()
+    return out
 
 
-def _nearest_state(current: float, mapping: dict[str, float]) -> str:
-    return min(mapping, key=lambda state: abs(mapping[state] - current))
+def _classify_audi_state(current: float, soft: float, kfm: float, hard: float) -> str:
+    candidates = {"Soft": soft, "KFM": kfm, "Hard": hard}
+    return min(candidates, key=lambda key: abs(current - candidates[key]))
 
 
-def _audi_state_mapping(plateaus: pd.DataFrame, config: HysteresisConfig) -> dict[str, float]:
-    explicit = {
-        "Soft": config.audi_soft_current_a,
-        "KFM": config.audi_kfm_current_a,
-        "Hard": config.audi_hard_current_a,
-    }
-    if all(value is not None for value in explicit.values()):
-        return {state: float(value) for state, value in explicit.items() if value is not None}
-
-    levels = sorted(float(value) for value in plateaus["Current Actual A"].unique())
-    if len(levels) < 3:
-        raise ValueError("Audi hysteresis requires at least three current states (soft / KFM / hard)")
-
-    level_scores: list[tuple[float, float]] = []
-    for level in levels:
-        subset = plateaus[np.isclose(plateaus["Current Actual A"], level, atol=0.02)]
-        normalized: list[float] = []
-        for _, row in subset.iterrows():
-            sign = 1.0 if row["Direction"] == "Rebound" else -1.0
-            normalized.append(float(row["Mean Force N"]) * sign)
-        if normalized:
-            level_scores.append((float(np.mean(normalized)), level))
-    if len(level_scores) < 3:
-        raise ValueError("Could not infer Audi soft/KFM/hard states from damping-force levels")
-    level_scores.sort()
-    return {
-        "Soft": level_scores[0][1],
-        "KFM": level_scores[len(level_scores) // 2][1],
-        "Hard": level_scores[-1][1],
-    }
+def _audi_state_currents(blocks: list[tuple[int, pd.DataFrame]], config: HysteresisConfig) -> tuple[float, float, float]:
+    currents = sorted({round(float(np.median(block[CURRENT])), config.current_decimals) for _, block in blocks})
+    if len(currents) < 3 and any(
+        value is None for value in (config.audi_soft_current_a, config.audi_kfm_current_a, config.audi_hard_current_a)
+    ):
+        raise ValueError("Audi hysteresis requires Soft, KFM and Hard current levels")
+    soft = config.audi_soft_current_a if config.audi_soft_current_a is not None else currents[0]
+    hard = config.audi_hard_current_a if config.audi_hard_current_a is not None else currents[-1]
+    if config.audi_kfm_current_a is not None:
+        kfm = config.audi_kfm_current_a
+    else:
+        mid = (soft + hard) / 2.0
+        kfm = min(currents[1:-1], key=lambda v: abs(v - mid))
+    return float(soft), float(kfm), float(hard)
 
 
 def _audi_hysteresis(dataset: DataSet, config: HysteresisConfig) -> HysteresisAnalysisResult:
-    data = dataset.data.copy().sort_values(["Block ID", TIME]).reset_index(drop=True)
+    data = dataset.data.copy()
+    blocks = _prepare_blocks(data)
+    soft, kfm, hard = _audi_state_currents(blocks, config)
+
+    processed_parts: list[pd.DataFrame] = []
     run_rows: list[dict[str, object]] = []
-    processed_blocks: list[pd.DataFrame] = []
-
-    for block_order, (block_id, raw_block) in enumerate(data.groupby("Block ID", sort=False), start=1):
-        block = raw_block.copy().reset_index(drop=True)
-        half_stroke_samples = _samples_per_half_stroke(block)
-        radius = max(1, int(round(config.audi_smoothing_fraction_per_side * half_stroke_samples)))
-        block["Smoothed Axial Load"] = _moving_average(block[LOAD].to_numpy(float), radius)
-        block["Audi Smoothing Radius Samples"] = radius
-        block["Audi Block Order"] = block_order
-        processed_blocks.append(block)
-
-        current_actual = float(np.median(block[CURRENT]))
+    for order, (block_id, raw_block) in enumerate(blocks, start=1):
+        block = _smooth_audi_block(raw_block, config.audi_smoothing_fraction_per_side)
+        processed_parts.append(block)
+        actual = float(np.median(block[CURRENT]))
+        state = _classify_audi_state(actual, soft, kfm, hard)
+        sample_rate = _sample_rate_hz(block)
         for motion in ("Rebound", "Compression"):
             forces, speeds, times = _zero_crossings_for_direction(
-                block,
-                motion,
-                config.zero_target_mm,
-                force_column="Smoothed Axial Load",
+                block, motion, config.zero_target_mm, "Audi Smoothed Load"
             )
             if not forces:
                 continue
-            first_force = float(forces[0])
-            retained = forces[1:]  # first cycle after switching is excluded from the mean
-            issues: list[str] = []
+            first_cycle_force = float(forces[0])
+            retained = forces[1:]
             if len(retained) < config.audi_min_mean_cycles:
-                issues.append(
-                    f"only {len(retained)} retained cycles; Audi requires at least {config.audi_min_mean_cycles}"
-                )
-            mean_force = float(np.mean(retained)) if retained else float("nan")
-            mean_speed = float(np.mean(speeds[1:])) if len(speeds) > 1 else float(np.mean(speeds))
+                mean_force = float("nan")
+                status = "Insufficient cycles"
+            else:
+                mean_force = float(np.mean(retained))
+                status = "OK" if (not np.isfinite(sample_rate) or sample_rate >= 1000.0) else "Warning"
             run_rows.append(
                 {
+                    "Block Order": order,
                     "Block ID": block_id,
-                    "Block Order": block_order,
-                    "Current Actual A": current_actual,
+                    "State": state,
+                    "Current A": actual,
                     "Direction": motion,
-                    "Crossing Count": len(forces),
-                    "Retained Cycle Count": len(retained),
-                    "First Cycle Force N": first_force,
+                    "First Cycle Force N": first_cycle_force,
                     "Mean Force N": mean_force,
-                    "Speed m/s": mean_speed,
-                    "Smoothing Radius Samples": radius,
-                    "Status": "Warning" if issues else "OK",
-                    "Issues": "; ".join(issues),
+                    "Raw Cycle Count": len(forces),
+                    "Retained Cycle Count": len(retained),
+                    "Mean Speed m/s": float(np.mean(speeds[1:])) if len(speeds) > 1 else float("nan"),
+                    "Sample Rate Hz": sample_rate,
+                    "Status": status,
                 }
             )
-
-    plateaus = pd.DataFrame(run_rows)
-    if plateaus.empty:
-        raise ValueError("No Audi hysteresis center-stroke force points were found")
-
-    state_mapping = _audi_state_mapping(plateaus, config)
-    plateaus["State"] = plateaus["Current Actual A"].map(lambda value: _nearest_state(float(value), state_mapping))
-
-    spread_by_direction: dict[str, float] = {}
-    for motion in ("Rebound", "Compression"):
-        subset = plateaus[(plateaus["Direction"] == motion) & plateaus["Mean Force N"].notna()]
-        sign = 1.0 if motion == "Rebound" else -1.0
-        state_means = subset.groupby("State")["Mean Force N"].mean() * sign
-        if "Hard" in state_means and "Soft" in state_means:
-            spread_by_direction[motion] = float(state_means["Hard"] - state_means["Soft"])
+    processed = pd.concat(processed_parts, ignore_index=True) if processed_parts else data
+    runs = pd.DataFrame(run_rows)
+    if runs.empty:
+        raise ValueError("No Audi hysteresis cycles could be evaluated")
 
     summary_rows: list[dict[str, object]] = []
-    kfm_orders = sorted(plateaus.loc[plateaus["State"] == "KFM", "Block Order"].unique())
-    for before_order, after_order in zip(kfm_orders[:-1], kfm_orders[1:]):
-        between = plateaus[
-            (plateaus["Block Order"] > before_order)
-            & (plateaus["Block Order"] < after_order)
-            & (plateaus["State"] != "KFM")
-        ]
-        excursion_states = [state for state in between["State"].dropna().unique() if state in {"Soft", "Hard"}]
-        if not excursion_states:
+    for motion in ("Rebound", "Compression"):
+        motion_runs = runs[runs["Direction"] == motion].sort_values("Block Order")
+        kfm_runs = motion_runs[(motion_runs["State"] == "KFM") & motion_runs["Mean Force N"].notna()]
+        if len(kfm_runs) < 2:
             continue
-        excursion_state = excursion_states[0]
-        excursion_order_candidates = sorted(between.loc[between["State"] == excursion_state, "Block Order"].unique())
-        if not excursion_order_candidates:
-            continue
-        excursion_order = excursion_order_candidates[0]
-
-        for motion in ("Rebound", "Compression"):
-            before = plateaus[(plateaus["Block Order"] == before_order) & (plateaus["Direction"] == motion)]
-            after = plateaus[(plateaus["Block Order"] == after_order) & (plateaus["Direction"] == motion)]
-            excursion = plateaus[(plateaus["Block Order"] == excursion_order) & (plateaus["Direction"] == motion)]
-            if before.empty or after.empty or excursion.empty:
+        kfm_indices = list(kfm_runs.index)
+        for left_index, right_index in zip(kfm_indices[:-1], kfm_indices[1:]):
+            before = runs.loc[left_index]
+            after = runs.loc[right_index]
+            between = motion_runs[
+                (motion_runs["Block Order"] > before["Block Order"])
+                & (motion_runs["Block Order"] < after["Block Order"])
+            ]
+            if between.empty:
                 continue
-            before_force = float(before["Mean Force N"].iloc[0])
-            after_force = float(after["Mean Force N"].iloc[0])
-            first_cycle_force = float(excursion["First Cycle Force N"].iloc[0])
-            hysteresis_n = abs(after_force - before_force)
-            spread = spread_by_direction.get(motion, float("nan"))
-            hysteresis_pct = hysteresis_n / spread * 100.0 if np.isfinite(spread) and spread > 0 else float("nan")
-            first_cycle_delta = first_cycle_force - before_force
+            extreme_rows = between[between["State"].isin(["Soft", "Hard"])]
+            if extreme_rows.empty:
+                continue
+            extreme = extreme_rows.iloc[0]
+            excursion_state = str(extreme["State"])
+            before_force = float(before["Mean Force N"])
+            after_force = float(after["Mean Force N"])
+            hyst_n = abs(abs(after_force) - abs(before_force))
+
+            soft_rows = motion_runs[(motion_runs["State"] == "Soft") & motion_runs["Mean Force N"].notna()]
+            hard_rows = motion_runs[(motion_runs["State"] == "Hard") & motion_runs["Mean Force N"].notna()]
+            if soft_rows.empty or hard_rows.empty:
+                spread = float("nan")
+            else:
+                soft_mag = float(np.mean(np.abs(soft_rows["Mean Force N"])))
+                hard_mag = float(np.mean(np.abs(hard_rows["Mean Force N"])))
+                spread = abs(hard_mag - soft_mag)
+            hyst_pct = hyst_n / spread * 100.0 if np.isfinite(spread) and spread > 0 else float("nan")
+            first_delta = abs(abs(float(after["First Cycle Force N"])) - abs(before_force))
+
             if config.limit_percent is None:
                 status = "Not evaluated"
-            elif np.isfinite(hysteresis_pct):
-                status = "PASS" if hysteresis_pct <= config.limit_percent else "FAIL"
-            else:
+            elif not np.isfinite(hyst_pct):
                 status = "Invalid"
+            else:
+                status = "PASS" if hyst_pct <= config.limit_percent else "FAIL"
             summary_rows.append(
                 {
-                    "Excursion State": excursion_state,
+                    "OEM": "AUDI",
                     "Direction": motion,
-                    "KFM Before Block": int(before_order),
-                    "Extreme Block": int(excursion_order),
-                    "KFM After Block": int(after_order),
-                    "KFM Before Force N": before_force,
-                    "KFM After Force N": after_force,
-                    "Hysteresis N": hysteresis_n,
+                    "Excursion State": excursion_state,
+                    "KFM Before N": before_force,
+                    "KFM After N": after_force,
+                    "Hysteresis N": hyst_n,
                     "Spread Fmax-Fmin N": spread,
-                    "Hysteresis %": hysteresis_pct,
-                    "First Cycle Force N": first_cycle_force,
-                    "First Cycle Delta N": first_cycle_delta,
+                    "Hysteresis %": hyst_pct,
+                    "First Cycle Delta N": first_delta,
                     "Limit %": config.limit_percent,
                     "Status": status,
                 }
             )
-
     summary = pd.DataFrame(summary_rows)
-    if summary.empty:
-        raise ValueError(
-            "Audi hysteresis could not pair KFM-before / extreme / KFM-after plateaus. "
-            "Verify current-state mapping and switching sequence."
-        )
-
-    processed = pd.concat(processed_blocks, ignore_index=True)
     settings = {
         "Analysis Mode": "Hysteresis",
         "OEM Profile": "audi",
-        "Smoothing": f"moving average ±{config.audi_smoothing_fraction_per_side * 100:.1f}% samples per stroke",
-        "First Cycle Excluded": True,
-        "Minimum Mean Cycles": config.audi_min_mean_cycles,
-        "State Mapping A": state_mapping,
+        "Soft Current A": soft,
+        "KFM Current A": kfm,
+        "Hard Current A": hard,
+        "Audi smoothing ± fraction per stroke": config.audi_smoothing_fraction_per_side,
+        "First cycle excluded": True,
+        "Minimum retained cycles": config.audi_min_mean_cycles,
         "Limit %": config.limit_percent,
         "Source File": dataset.source_path.name,
     }
-    return HysteresisAnalysisResult(processed, plateaus, summary, settings, dataset.source_path)
+    return HysteresisAnalysisResult(processed, runs, summary, settings, dataset.source_path)
 
 
 def analyze_hysteresis(dataset: DataSet, config: HysteresisConfig | None = None) -> HysteresisAnalysisResult:
     config = config or HysteresisConfig()
-    if config.standard == HysteresisStandard.BMW:
-        return _bmw_hysteresis(dataset, config)
+    required = [TIME, DISP, LOAD, CURRENT]
+    missing = [c for c in required if c not in dataset.data.columns]
+    if missing:
+        raise ValueError(f"Missing hysteresis channel(s): {', '.join(missing)}")
     if config.standard == HysteresisStandard.AUDI:
         return _audi_hysteresis(dataset, config)
-    raise ValueError(f"Unsupported hysteresis standard: {config.standard}")
+    return _bmw_hysteresis(dataset, config)
