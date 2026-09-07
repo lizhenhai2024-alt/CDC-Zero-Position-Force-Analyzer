@@ -56,6 +56,8 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 - 复原：`dX/dt > 0`，载荷期望 `> 0`
 - 压缩：`dX/dt < 0`，载荷期望 `< 0`
 - 电流主显示保留 1 位小数
+- 复原/压缩结果载荷输出保留整数 N；其它连续数值默认保留 2 位小数
+- 内部计算始终保留原始精度，显示/Excel 格式化不改动源数据
 - `Corrected Axial Load = Analysis Axial Load - Gas Force`
 - Audi 10% 是**评价窗口总宽度**，即中心两侧各 `±5% × Total Stroke`
 
