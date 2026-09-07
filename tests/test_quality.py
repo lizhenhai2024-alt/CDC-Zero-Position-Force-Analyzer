@@ -48,7 +48,7 @@ def test_quality_marks_nonfinite_required_channel_invalid():
     assert "non-finite samples: 1" in q.iloc[0]["Issues"]
 
 
-def test_export_contains_data_quality_sheet(tmp_path: Path):
+def test_export_contains_quality_and_sweep_sheets(tmp_path: Path):
     # Use a full synthetic cycle so the analyzer can produce normal result tables.
     theta = np.linspace(0, 2 * np.pi, 401)
     t = theta / (2 * np.pi) * 4.0
@@ -66,6 +66,7 @@ def test_export_contains_data_quality_sheet(tmp_path: Path):
     out = export_xlsx(result, tmp_path / "quality.xlsx")
     wb = load_workbook(out, read_only=True)
     assert "Data Quality" in wb.sheetnames
+    assert "Sweep Comparison" in wb.sheetnames
     ws = wb["Data Quality"]
     headers = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
     assert "Sample Rate Hz" in headers
