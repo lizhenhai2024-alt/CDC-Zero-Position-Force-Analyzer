@@ -1,6 +1,6 @@
 # CDC Zero Position Force Analyzer
 
-CDC 减振器台架数据中心行程阻尼力分析工具。当前 `v0.1.0` 已实现可测试的核心算法，GUI 将在下一阶段接入。
+CDC 减振器台架数据中心行程阻尼力分析工具。当前 `v0.2.0` 已实现核心算法与 PySide6/PyQtGraph 单机 GUI 开发版本。
 
 ## 已实现
 
@@ -17,6 +17,12 @@ CDC 减振器台架数据中心行程阻尼力分析工具。当前 `v0.1.0` 已
 - Summary / Run / Cycle 三级结果
 - `.xlsx` 导出
 - CLI 调试入口
+- PySide6 / PyQtGraph GUI
+- X 轴字段自由选择、Y 轴多字段选择
+- Current / Run / Cycle 图形筛选
+- 不同量纲自动上下分图并共享 X 轴
+- Audi 10% 评价窗口与复原/压缩峰值点可视化
+- PNG 图形导出
 
 ## 安装开发环境
 
@@ -25,10 +31,11 @@ python -m pip install -e .[dev]
 pytest -q
 ```
 
-GUI 阶段：
+GUI：
 
 ```bash
 python -m pip install -e .[gui]
+cdc-analyzer-gui
 ```
 
 ## CLI 示例
@@ -55,10 +62,11 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 
 - 复原：`dX/dt > 0`，载荷期望 `> 0`
 - 压缩：`dX/dt < 0`，载荷期望 `< 0`
-- 电流主显示保留 1 位小数
-- 复原/压缩结果载荷输出保留整数 N；其它连续数值默认保留 2 位小数
-- 内部计算始终保留原始精度，显示/Excel 格式化不改动源数据
+- 电流工况标签显示保留 1 位小数
+- 复原/压缩载荷结果显示保留整数 N
+- 其它连续量显示保留 2 位小数
+- 显示舍入不改变内部计算精度
 - `Corrected Axial Load = Analysis Axial Load - Gas Force`
-- Audi 10% 是**评价窗口总宽度**，即中心两侧各 `±5% × Total Stroke`
+- Audi 10% 是评价窗口总宽度，即中心两侧各 `±5% × Total Stroke`
 
 详细需求见 `docs/V1.0_REQUIREMENTS.md`，实测验证见 `docs/VALIDATION_2026-09-07.md`。
