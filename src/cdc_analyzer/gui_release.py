@@ -89,6 +89,29 @@ def _build_release_gui_classes():
             self._apply_release_identity()
             self._capture_initial_view_ranges()
 
+        def _table(self):
+            table = super()._table()
+            table.setMouseTracking(True)
+            table.viewport().setMouseTracking(True)
+            table.setStyleSheet(
+                table.styleSheet()
+                + """
+                QTableView::item:hover {
+                    background-color: #e8f5e9;
+                    color: #202020;
+                }
+                QTableView::item:selected {
+                    background-color: #dff2df;
+                    color: #202020;
+                }
+                QTableView::item:selected:hover {
+                    background-color: #cfe8cf;
+                    color: #202020;
+                }
+                """
+            )
+            return table
+
         def _setup_language_toolbar(self):
             language_layout = self.language_box.layout()
             if language_layout is not None:
