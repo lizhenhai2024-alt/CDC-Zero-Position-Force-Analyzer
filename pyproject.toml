@@ -20,10 +20,10 @@ gui = ["PySide6>=6.7", "pyqtgraph>=0.13"]
 
 [project.scripts]
 cdc-analyzer = "cdc_analyzer.cli:main"
-cdc-analyzer-gui = "cdc_analyzer.gui_release_v074:main"
+cdc-analyzer-gui = "cdc_analyzer.gui_release_v075:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "src"]
 include-package-data = true
 
 [tool.setuptools.packages.find]
