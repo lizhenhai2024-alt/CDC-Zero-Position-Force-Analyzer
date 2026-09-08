@@ -2,19 +2,22 @@ from __future__ import annotations
 
 import sys
 
+from . import gui_release_v076 as _v076_module
 from . import gui_release_v077 as _v077_module
 from .dynamic_gui_v078 import DynamicPagesController
 from .gui import _qt_imports
 from .product_info import COMPANY_EN, PRODUCT_NAME
 
-# V0.7.7 resolves the dynamic controller from its module globals during window
-# construction. Point it at the V0.7.8 controller both now and again inside the
-# builder so later imports cannot accidentally reset the controller chain.
+# The V0.7.7 builder ultimately constructs its window through V0.7.6. Keep both
+# module globals aligned so direct V0.7.8 construction cannot fall back to the
+# older V0.7.7 dynamic controller because of import order.
 _v077_module.DynamicPagesController = DynamicPagesController
+_v076_module.DynamicPagesController = DynamicPagesController
 
 
 def _build_release_gui_classes_v078():
     _v077_module.DynamicPagesController = DynamicPagesController
+    _v076_module.DynamicPagesController = DynamicPagesController
     _QtCore, QtWidgets, _pg = _qt_imports()
     BaseMainWindow = _v077_module._build_release_gui_classes_v077()
 
