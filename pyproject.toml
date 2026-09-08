@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cdc-test-data-analyzer"
-version = "1.0.0"
-description = "CDC damper test data analyzer for center-stroke force evaluation"
+version = "0.7.4"
+description = "Damper test data analyzer for center-stroke force, response-time and hysteresis evaluation"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24",
   "pandas>=2.0",
   "openpyxl>=3.1",
+  "Pillow>=10.0",
 ]
 
 [project.optional-dependencies]
@@ -20,7 +21,7 @@ gui = ["PySide6>=6.7", "pyqtgraph>=0.13"]
 
 [project.scripts]
 cdc-analyzer = "cdc_analyzer.cli:main"
-cdc-analyzer-gui = "cdc_analyzer.gui_release:main"
+cdc-analyzer-gui = "cdc_analyzer.gui_release_v074:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
