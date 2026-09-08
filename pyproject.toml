@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cdc-test-data-analyzer"
-version = "1.0.0"
+version = "0.7.2"
 description = "Damper test data analyzer for center-stroke force, response-time and hysteresis evaluation"
 readme = "README.md"
 requires-python = ">=3.10"
