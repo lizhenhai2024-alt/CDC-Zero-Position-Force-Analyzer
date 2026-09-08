@@ -1,4 +1,4 @@
-from cdc_analyzer.gui_release_v075 import main
+from cdc_analyzer.gui_release_v076 import main
 
 
 if __name__ == "__main__":
