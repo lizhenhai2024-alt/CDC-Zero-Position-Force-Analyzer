@@ -8,11 +8,13 @@ from .gui import _qt_imports
 from .product_info import COMPANY_EN, PRODUCT_NAME
 
 # V0.7.7 resolves the dynamic controller from its module globals during window
-# construction. Redirect it to the V0.7.8 localization/velocity-marker layer.
+# construction. Point it at the V0.7.8 controller both now and again inside the
+# builder so later imports cannot accidentally reset the controller chain.
 _v077_module.DynamicPagesController = DynamicPagesController
 
 
 def _build_release_gui_classes_v078():
+    _v077_module.DynamicPagesController = DynamicPagesController
     _QtCore, QtWidgets, _pg = _qt_imports()
     BaseMainWindow = _v077_module._build_release_gui_classes_v077()
 
