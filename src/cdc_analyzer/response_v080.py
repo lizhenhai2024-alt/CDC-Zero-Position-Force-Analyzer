@@ -15,23 +15,13 @@ BMW_TARGET_SPEEDS_MPS = (0.131, 0.524, 1.048)
 AUDI_TARGET_SPEEDS_MPS = (0.052, 0.131, 0.262, 0.524)
 DEFAULT_TARGET_SPEED_TOLERANCE = _v074.DEFAULT_TARGET_SPEED_TOLERANCE
 
-# Keep legacy modules consistent whenever V0.8.0 is imported by the release GUI.
-_v074.BMW_TARGET_SPEEDS_MPS = BMW_TARGET_SPEEDS_MPS
-_v075.BMW_TARGET_SPEEDS_MPS = BMW_TARGET_SPEEDS_MPS
-
 
 def default_target_speeds(standard: ResponseStandard) -> tuple[float, ...]:
     return BMW_TARGET_SPEEDS_MPS if standard == ResponseStandard.BMW else AUDI_TARGET_SPEEDS_MPS
 
 
 def parse_target_speeds(value: str | Iterable[float]) -> tuple[float, ...]:
-    """Parse an operator-defined target-speed list.
-
-    Accepts comma/semicolon/whitespace separated positive values so customer
-    programs are not limited to BMW/Audi nominal speeds. Examples:
-    ``0.1, 0.3, 0.6, 10`` or ``0.131 0.524 1.048``.
-    """
-
+    """Parse an operator-defined target-speed list."""
     if isinstance(value, str):
         tokens = [token for token in re.split(r"[,;，；\s]+", value.strip()) if token]
         if not tokens:
@@ -64,10 +54,9 @@ def analyze_response_time_v080(
     """V0.8.0 response evaluator with operator-configurable target speeds.
 
     OEM selection controls the evaluation profile, while target speed is an
-    independent test condition. BMW/Audi defaults are supplied for convenience
-    but may be replaced by arbitrary customer speeds such as 0.1/0.3/0.6/10 m/s.
+    independent test condition. Legacy V0.7.x module constants are deliberately
+    left untouched so importing V0.8.0 cannot change older regression behavior.
     """
-
     config = config or ResponseConfig()
     targets = parse_target_speeds(
         target_speeds_mps if target_speeds_mps is not None else default_target_speeds(config.standard)
