@@ -3,20 +3,28 @@ from __future__ import annotations
 import sys
 
 from . import gui_release_v076 as _v076_module
-from .dynamic_gui_v077 import DynamicPagesController
+from .dynamic_gui_v077 import DynamicPagesController as _ControllerV077
 from .gui import _qt_imports
 from .product_info import COMPANY_EN, PRODUCT_NAME
 
-# V0.7.6 resolves its dynamic controller from module globals during window
-# construction. Point that dependency at the V0.7.7 presentation layer.
-_v076_module.DynamicPagesController = DynamicPagesController
+# Public compatibility name. Newer release modules may replace this attribute,
+# so the builder below deliberately uses the immutable private alias instead.
+DynamicPagesController = _ControllerV077
 
 
 def _build_release_gui_classes_v077():
+    # V0.7.6 resolves its dynamic controller from this module global when the
+    # window instance is constructed. Re-assert the exact V0.7.7 controller so
+    # importing a newer release cannot contaminate V0.7.7 regression tests.
+    _v076_module.DynamicPagesController = _ControllerV077
     _QtCore, QtWidgets, _pg = _qt_imports()
     BaseMainWindow = _v076_module._build_release_gui_classes_v076()
 
     class MainWindow(BaseMainWindow):
+        def __init__(self):
+            _v076_module.DynamicPagesController = _ControllerV077
+            super().__init__()
+
         def _show_about_dialog(self):
             QtWidgets.QMessageBox.information(
                 self,
