@@ -15,6 +15,7 @@ DISP = "Axial Displacement"
 LOAD = "Axial Load"
 CURRENT = "CDC 1 Current FB_1"
 CORRECTED = "Corrected Axial Load"
+GAS_CORRECTION = "Gas Force Correction"
 
 
 class EvaluationProfile(str, Enum):
@@ -37,6 +38,7 @@ class AnalyzerConfig:
     window_min_points_per_direction: int = 3
     zero_target_mm: float = 0.0
     gas_mode: Literal["off", "direct", "pressure"] = "off"
+    gas_operation: Literal["subtract", "add"] = "subtract"
     gas_force_n: float = 0.0
     gas_gauge_pressure_mpa: float = 0.0
     piston_rod_diameter_mm: float = 0.0
@@ -176,11 +178,21 @@ class CDCAnalyzer:
             return gas_force_from_pressure(c.gas_gauge_pressure_mpa, c.piston_rod_diameter_mm)
         raise ValueError(f"Unsupported gas mode: {c.gas_mode}")
 
+    def _gas_correction(self) -> float:
+        operation = self.config.gas_operation
+        if operation not in {"subtract", "add"}:
+            raise ValueError(f"Unsupported gas operation: {operation}")
+        force = self._gas_force()
+        return force if operation == "add" else -force
+
     def _prepare(self, dataset: DataSet) -> pd.DataFrame:
         df = dataset.data.copy()
         df["Analysis Axial Load"] = (-1 if self.config.reverse_load_sign else 1) * df[LOAD].astype(float)
-        df["Gas Force"] = self._gas_force()
-        df[CORRECTED] = df["Analysis Axial Load"] - df["Gas Force"]
+        gas_force = self._gas_force()
+        gas_correction = self._gas_correction()
+        df["Gas Force"] = gas_force
+        df[GAS_CORRECTION] = gas_correction
+        df[CORRECTED] = df["Analysis Axial Load"] + df[GAS_CORRECTION]
         motion = pd.Series(index=df.index, dtype="object")
         for _, block in df.groupby("Block ID", sort=False):
             x = block[DISP].to_numpy(float) * (-1 if self.config.reverse_displacement_direction else 1)
@@ -350,7 +362,9 @@ class CDCAnalyzer:
             "force_channel": force_col,
             "current_decimals": self.config.current_decimals,
             "gas_mode": self.config.gas_mode,
+            "gas_operation": self.config.gas_operation,
             "gas_force_n": self._gas_force(),
+            "gas_correction_n": self._gas_correction(),
             "window_percent": self.config.window_percent,
             "window_basis": self.config.window_basis,
             "zero_target_mm": self.config.zero_target_mm,

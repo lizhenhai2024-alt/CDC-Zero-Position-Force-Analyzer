@@ -67,6 +67,53 @@ def test_window_mean_and_gas_correction():
     run = result.runs.iloc[0]
     assert run["Rebound N"] == pytest_approx(800.0, 2.0)
     assert run["Compression N"] == pytest_approx(-800.0, 2.0)
+    assert result.settings["gas_operation"] == "subtract"
+    assert result.settings["gas_correction_n"] == pytest_approx(-200.0, 1e-9)
+    assert (result.processed["Gas Force Correction"] == -200.0).all()
+
+
+def test_gas_correction_can_add_without_overwriting_measured_load():
+    cfg = AnalyzerConfig(
+        profile=EvaluationProfile.WINDOW_MEAN,
+        window_percent=2.0,
+        gas_mode="direct",
+        gas_operation="add",
+        gas_force_n=200.0,
+        force_channel="corrected",
+    )
+    dataset = synthetic_dataset(cycles=1)
+    original_load = dataset.data["Axial Load"].copy()
+    result = CDCAnalyzer(cfg).analyze(dataset)
+    run = result.runs.iloc[0]
+
+    assert run["Rebound N"] == pytest_approx(1200.0, 2.0)
+    assert run["Compression N"] == pytest_approx(-400.0, 2.0)
+    assert result.settings["gas_operation"] == "add"
+    assert result.settings["gas_correction_n"] == pytest_approx(200.0, 1e-9)
+    assert (result.processed["Gas Force Correction"] == 200.0).all()
+    assert result.processed["Axial Load"].equals(original_load)
+
+
+def test_pressure_derived_gas_force_uses_selected_operation():
+    cfg = AnalyzerConfig(
+        gas_mode="pressure",
+        gas_operation="add",
+        gas_gauge_pressure_mpa=0.8,
+        piston_rod_diameter_mm=18.0,
+    )
+    result = CDCAnalyzer(cfg).analyze(synthetic_dataset(cycles=1))
+    expected = gas_force_from_pressure(0.8, 18.0)
+
+    assert result.settings["gas_force_n"] == pytest_approx(expected, 1e-9)
+    assert result.settings["gas_correction_n"] == pytest_approx(expected, 1e-9)
+
+
+def test_cli_accepts_gas_force_operation():
+    from cdc_analyzer.cli import build_parser
+
+    parser = build_parser()
+    assert parser.parse_args(["sample.dat"]).gas_operation == "subtract"
+    assert parser.parse_args(["sample.dat", "--gas-operation", "add"]).gas_operation == "add"
 
 
 def test_zero_crossing_interpolation():

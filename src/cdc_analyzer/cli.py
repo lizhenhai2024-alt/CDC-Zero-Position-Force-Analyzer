@@ -14,6 +14,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("input", type=Path)
     p.add_argument("--profile", choices=[e.value for e in EvaluationProfile], default=EvaluationProfile.AUDI.value)
     p.add_argument("--gas-force", type=float, default=0.0, help="Constant center gas rebound force [N]")
+    p.add_argument(
+        "--gas-operation",
+        choices=["subtract", "add"],
+        default="subtract",
+        help="Apply gas force by subtracting it from or adding it to measured load",
+    )
     p.add_argument("--corrected", action="store_true", help="Evaluate corrected force instead of measured force")
     p.add_argument("--window-percent", type=float, default=2.0)
     p.add_argument("--window-basis", choices=["amplitude", "total_stroke"], default="amplitude")
@@ -27,6 +33,7 @@ def main() -> int:
     config = AnalyzerConfig(
         profile=EvaluationProfile(args.profile),
         gas_mode="direct" if args.gas_force else "off",
+        gas_operation=args.gas_operation,
         gas_force_n=args.gas_force,
         force_channel="corrected" if args.corrected else "raw",
         window_percent=args.window_percent,
