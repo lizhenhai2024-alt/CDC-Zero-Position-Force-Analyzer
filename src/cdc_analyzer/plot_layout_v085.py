@@ -61,23 +61,25 @@ class FlowLayout(QtWidgets.QLayout):
 class IntersectionLabels:
     """Place transparent text above/below points in logical scene pixels.
 
-    Recalculate on zoom/resize. Break dashed guides under text instead of
-    covering measured signals with opaque annotation boxes.
+    Recalculate on zoom/resize. Keep dashed guides continuous and place
+    transparent labels clear of their guide/intersection.
     """
     def __init__(self, plot, pg, font, foreground, pen):
         self.plot, self.pg, self.font = plot, pg, font
         self.foreground, self.pen = foreground, pen
         self.labels, self.guides, self.lines = [], [], []
+        self.placements = {}
         self.busy = False
         plot.vb.sigResized.connect(self.update)
         plot.vb.sigRangeChanged.connect(self.update)
 
-    def label(self, text, x, y, *, level=False):
+    def label(self, text, x, y, *, level=False, placement="auto"):
         item = self.pg.TextItem(text=text, color=self.foreground, anchor=(0.5, 0.5))
         item.setFont(self.font)
         item.setZValue(20)
         self.plot.addItem(item, ignoreBounds=True)
         self.labels.append((item, float(x), float(y), level))
+        self.placements[item] = placement
         return item
 
     def guide(self, value, *, vertical):
@@ -96,29 +98,59 @@ class IntersectionLabels:
             for item, x, y, level in self.labels:
                 point = vb.mapViewToScene(QtCore.QPointF(x, y))
                 width, height = item.boundingRect().width(), item.boundingRect().height()
-                cx = point.x() + width / 2 if level else point.x()
-                cx = max(bounds.left() + width / 2, min(cx, bounds.right() - width / 2))
+                placement = self.placements.get(item, "auto")
+                if level:
+                    x_candidates = [point.x() + width / 2]
+                elif placement.endswith("-left"):
+                    x_candidates = [point.x() - width / 2 - 6,
+                                    point.x() + width / 2 + 6]
+                elif placement.endswith("-right"):
+                    x_candidates = [point.x() + width / 2 + 6,
+                                    point.x() - width / 2 - 6]
+                else:
+                    x_candidates = [point.x(), point.x() - width / 2 - 6,
+                                    point.x() + width / 2 + 6]
+                if not level:
+                    for occupied in rects:
+                        x_candidates.extend([
+                            occupied.left() - width / 2 - 4,
+                            occupied.right() + width / 2 + 4,
+                        ])
+                x_candidates = [
+                    max(bounds.left() + width / 2,
+                        min(cx, bounds.right() - width / 2))
+                    for cx in x_candidates
+                ]
                 chosen = None
-                # First try directly above, then below the intersection. Only
-                # increase vertical separation if nearby labels would overlap.
-                candidates = [point.y() - 6 - height / 2, point.y() + 6 + height / 2,
-                              bounds.top() + height / 2, bounds.bottom() - height / 2]
+                above = point.y() - 6 - height / 2
+                below = point.y() + 6 + height / 2
+                if placement.startswith("below"):
+                    candidates = [below, above]
+                elif placement.startswith("above") or level:
+                    candidates = [above, below]
+                else:
+                    candidates = [above, below]
                 for occupied in rects:
                     candidates.extend([occupied.top() - height / 2 - 4,
                                        occupied.bottom() + height / 2 + 4])
-                candidates.sort(key=lambda cy: (abs(cy - point.y()), cy > point.y()))
+                candidates.extend([bounds.top() + height / 2, bounds.bottom() - height / 2])
                 for cy in candidates:
-                    if not level and abs(cy - point.y()) < height / 2 + 5:
-                        continue
-                    candidate = QtCore.QRectF(cx - width / 2, cy - height / 2, width, height)
-                    if bounds.contains(candidate) and not any(candidate.adjusted(-3, -2, 3, 2).intersects(r) for r in rects):
-                        chosen = candidate
+                    for cx in x_candidates:
+                        if not level and abs(cy - point.y()) < height / 2 + 5:
+                            continue
+                        candidate = QtCore.QRectF(cx - width / 2, cy - height / 2, width, height)
+                        if bounds.contains(candidate) and not any(
+                                candidate.adjusted(-3, -2, 3, 2).intersects(r) for r in rects):
+                            chosen = candidate
+                            break
+                    if chosen is not None:
                         break
                 if chosen is None:
                     # Very small manually zoomed view: preserve readability
                     # inside the viewport; the scrollable plot sets a useful
                     # minimum height for the normal 100%/150% layouts.
                     cy = max(bounds.top() + height / 2, min(point.y() - height, bounds.bottom() - height / 2))
+                    cx = x_candidates[0]
                     chosen = QtCore.QRectF(cx - width / 2, cy - height / 2, width, height)
                 item.setPos(vb.mapSceneToView(chosen.center()))
                 rects.append(chosen)
@@ -128,30 +160,10 @@ class IntersectionLabels:
             self.lines.clear()
             xr, yr = vb.viewRange()
             for value, vertical in self.guides:
-                lo, hi = yr if vertical else xr
-                intervals = [(lo, hi)]
-                for rect in rects:
-                    a = vb.mapSceneToView(rect.adjusted(-2, -2, 2, 2).topLeft())
-                    b = vb.mapSceneToView(rect.adjusted(-2, -2, 2, 2).bottomRight())
-                    cross_lo, cross_hi = sorted((a.x(), b.x()) if vertical else (a.y(), b.y()))
-                    if not cross_lo <= value <= cross_hi:
-                        continue
-                    gap_lo, gap_hi = sorted((a.y(), b.y()) if vertical else (a.x(), b.x()))
-                    segments = []
-                    for left, right in intervals:
-                        if gap_hi <= left or gap_lo >= right:
-                            segments.append((left, right))
-                        else:
-                            if left < gap_lo:
-                                segments.append((left, gap_lo))
-                            if gap_hi < right:
-                                segments.append((gap_hi, right))
-                    intervals = segments
-                for left, right in intervals:
-                    line = self.pg.PlotCurveItem(
-                        [value, value] if vertical else [left, right],
-                        [left, right] if vertical else [value, value], pen=self.pen)
-                    self.plot.addItem(line, ignoreBounds=True)
-                    self.lines.append(line)
+                line = self.pg.PlotCurveItem(
+                    [value, value] if vertical else xr,
+                    yr if vertical else [value, value], pen=self.pen)
+                self.plot.addItem(line, ignoreBounds=True)
+                self.lines.append(line)
         finally:
             self.busy = False

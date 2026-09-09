@@ -52,7 +52,15 @@ for trigger in (1.100, 1.140):
         for (item, x, y, level), rect in zip(annotations.labels, rects):
             if not level:
                 point = annotations.plot.vb.mapViewToScene(QtCore.QPointF(x, y))
-                assert abs(rect.center().x() - point.x()) < 1
+                assert not rect.contains(point)
+        level_rects = [
+            rect for (_, _, _, level), rect in zip(annotations.labels, rects) if level
+        ]
+        if len(level_rects) > 1:
+            assert max(rect.left() for rect in level_rects) - min(
+                rect.left() for rect in level_rects
+            ) < 1
+        assert len(annotations.lines) == len(annotations.guides)
 out = os.environ.get("CDC_DISPLAY_OUTPUT")
 if out:
     folder = Path(out)

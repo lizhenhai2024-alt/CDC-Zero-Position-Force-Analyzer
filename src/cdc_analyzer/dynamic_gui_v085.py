@@ -191,21 +191,29 @@ class DynamicPagesController(_BaseController):
               for label, key in (("t₁%", "Dead Time t1 ms"), ("t₆₃%", "Switch Time t63 ms"), ("t₉₀%", "Switch Time t90 ms")) if np.isfinite(row[key])]),
         ):
             annotations = IntersectionLabels(plot, self.pg, self._font(), foreground, self._marker_pen())
-            marker_center = float(np.mean([x for _, x in markers]))
-            level_x = (t[0] + (t[-1] - t[0]) * 0.015 if marker_center > (t[0] + t[-1]) / 2
-                       else t[-1] - (t[-1] - t[0]) * 0.10)
+            level_x = t[0] + (t[-1] - t[0]) * 0.015
             for label, value in sorted(levels, key=lambda pair: -pair[1]):
                 annotations.guide(value, vertical=False)
-                # I10 is labelled at the vertical/current intersection below.
-                if plot is current and label == "I₁₀%":
-                    continue
-                annotations.label(label, level_x, value, level=True)
+                annotations.label(label, level_x, value, level=True, placement="above-left")
             xs, ys = [], []
+            response_marker_index = 0
             for label, x in markers:
                 if t[0] <= x <= t[-1]:
                     y = float(np.interp(x, t, values))
                     annotations.guide(x, vertical=True)
-                    annotations.label(label, x, y)
+                    if plot is current:
+                        placement = "above-left"
+                    elif label == "t₀":
+                        placement = "below-left"
+                    else:
+                        side = "above" if response_marker_index % 2 == 0 else "below"
+                        response_marker_index += 1
+                        delta = max((t[-1] - t[0]) * 0.002, np.finfo(float).eps)
+                        slope = float(np.interp(min(t[-1], x + delta), t, values)
+                                      - np.interp(max(t[0], x - delta), t, values))
+                        horizontal = "left" if (slope >= 0) == (side == "above") else "right"
+                        placement = f"{side}-{horizontal}"
+                    annotations.label(label, x, y, placement=placement)
                     xs.append(x)
                     ys.append(y)
             dots = self.pg.ScatterPlotItem(xs, ys, symbol="o", size=7, pen=self.pg.mkPen("#1565c0"), brush=self.pg.mkBrush("#1565c0"), pxMode=True)

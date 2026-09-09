@@ -69,6 +69,10 @@ def test_main_window_constructs_analyzes_and_switches_language_offscreen():
         "Axial Load": "轴向载荷",
         "CDC 1 Current FB_1": "CDC 1 反馈电流",
     }
+    import pyqtgraph as pg
+    selected_items = window.y_axis.selectedItems()
+    for index, item in enumerate(selected_items):
+        assert item.foreground().color() == pg.intColor(index, hues=len(selected_items))
     window.x_axis.setCurrentIndex(window.x_axis.findData("Axial Displacement"))
     for index in range(window.y_axis.count()):
         item = window.y_axis.item(index)
