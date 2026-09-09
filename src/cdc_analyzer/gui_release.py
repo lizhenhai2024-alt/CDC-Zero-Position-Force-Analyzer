@@ -231,6 +231,7 @@ def _build_release_gui_classes():
 
             for field, key in (
                 (self.gas_mode, "mode"),
+                (self.gas_operation, "gas_operation"),
                 (self.gas_force, "gas_force"),
                 (self.gas_pressure, "gauge_pressure"),
                 (self.rod_dia, "rod_diameter"),

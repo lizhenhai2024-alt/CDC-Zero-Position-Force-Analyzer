@@ -117,7 +117,9 @@ def _help_html(language: str) -> str:
 
         <h2>4. 气体反弹力修正</h2>
         <p>原始轴向载荷永不覆盖。修正后生成独立载荷通道：</p>
+        <p>运算方式可选择：</p>
         <p><code>Corrected Load = Measured Load - Gas Force</code></p>
+        <p>或 <code>Corrected Load = Measured Load + Gas Force</code></p>
         <p>若使用气压计算：<code>Fg = Pg × π × d² / 4</code>，其中 Pg 使用表压（MPa），d 使用 mm，结果为 N。</p>
         <div class="warn">零位恒定气体力适合中心行程评价；若未来需要全行程精确修正，应使用随位移变化的气体状态模型。</div>
 
@@ -187,7 +189,7 @@ def _help_html(language: str) -> str:
     <h3>Window Mean</h3><p>Separately averages rebound and compression samples inside a configurable center window.</p>
     <h3>Target-position crossing</h3><p>Linearly interpolates rebound and compression force at the selected target displacement, normally 0 mm.</p>
     <h2>4. Gas rebound-force correction</h2>
-    <p><code>Corrected Load = Measured Load - Gas Force</code>. Pressure calculation uses <code>Fg = Pg × π × d² / 4</code>, with gauge pressure in MPa and rod diameter in mm.</p>
+    <p>Select either <code>Corrected Load = Measured Load - Gas Force</code> or <code>Corrected Load = Measured Load + Gas Force</code>. Pressure calculation uses <code>Fg = Pg × π × d² / 4</code>, with gauge pressure in MPa and rod diameter in mm.</p>
     <h2>5. Plot tools</h2>
     <p>Zoom In, Zoom Out, Box Zoom, Pan and Reset are available above the plot. Mouse-wheel zoom remains available. Background can be White, Black, Light Gray, Dark Gray or a custom color, and PNG export uses the active plot background.</p>
     <h2>6. Data quality</h2>

@@ -18,7 +18,7 @@
 - Audi：最后一个完整循环 + 行程中心总行程 10% 窗口 + 复原最大值 / 压缩最小值
 - Window Mean：窗口比例、基准可设置
 - Zero Crossing：目标位移线性插值
-- 气体反弹力恒定修正，原始载荷永不覆盖
+- 气体反弹力支持“加上 / 减去”恒定修正，原始载荷永不覆盖
 - Summary / Run / Cycle 三级结果
 - Data Quality：按 acquisition block 输出采样点数、采样率、时间间隔、位移范围、载荷范围、电流中位数/标准差及结构性异常
 - GUI 分析前执行 Data Quality preflight；结构性 `Invalid` 输入停止分析
@@ -68,7 +68,7 @@ cdc-analyzer sample.dat --profile audi
 气体力修正后评价：
 
 ```bash
-cdc-analyzer sample.dat --profile audi --gas-force 200 --corrected --export result.xlsx
+cdc-analyzer sample.dat --profile audi --gas-force 200 --gas-operation subtract --corrected --export result.xlsx
 ```
 
 2% 单边振幅窗口均值：
@@ -85,7 +85,7 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 - 复原/压缩载荷结果显示保留整数 N
 - 其它连续量显示保留 2 位小数
 - 显示舍入不改变内部计算精度
-- `Corrected Axial Load = Analysis Axial Load - Gas Force`
+- 气体力运算可选择 `Corrected Axial Load = Analysis Axial Load - Gas Force` 或 `Corrected Axial Load = Analysis Axial Load + Gas Force`
 - Audi 10% 是评价窗口总宽度，即中心两侧各 `±5% × Total Stroke`
 - Sweep Comparison 的 `Delta` 定义为 `Down - Up`
 - Sweep 差异只做描述性输出，除非后续提供明确工程或客户限值

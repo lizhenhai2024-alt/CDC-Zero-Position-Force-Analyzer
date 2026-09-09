@@ -6,7 +6,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from .analysis import CORRECTED, CURRENT, DISP, LOAD, TIME, AnalysisResult, EvaluationProfile
+from .analysis import CORRECTED, CURRENT, DISP, GAS_CORRECTION, LOAD, TIME, AnalysisResult, EvaluationProfile
 
 PLOT_UNITS: dict[str, str] = {
     TIME: "s",
@@ -16,11 +16,12 @@ PLOT_UNITS: dict[str, str] = {
     CORRECTED: "N",
     CURRENT: "A",
     "Gas Force": "N",
+    GAS_CORRECTION: "N",
     "Current Actual": "A",
     "Current Label": "A",
 }
 
-DEFAULT_PLOT_CHANNELS = [TIME, DISP, LOAD, CURRENT, CORRECTED, "Gas Force"]
+DEFAULT_PLOT_CHANNELS = [TIME, DISP, LOAD, CURRENT, CORRECTED, "Gas Force", GAS_CORRECTION]
 
 
 @dataclass(frozen=True, slots=True)

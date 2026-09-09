@@ -145,6 +145,8 @@ def _build_gui_classes():
             self.gas_mode = QtWidgets.QComboBox()
             self.gas_mode.currentIndexChanged.connect(self._sync_controls)
             self.gas_form.addRow("", self.gas_mode)
+            self.gas_operation = QtWidgets.QComboBox()
+            self.gas_form.addRow("", self.gas_operation)
             self.gas_force = QtWidgets.QDoubleSpinBox()
             self.gas_force.setRange(0, 10000)
             self.gas_force.setDecimals(2)
@@ -290,6 +292,15 @@ def _build_gui_classes():
                 ],
                 gas_data,
             )
+            operation_data = self.gas_operation.currentData() or "subtract"
+            self._set_combo_items(
+                self.gas_operation,
+                [
+                    (tr(self.language, "gas_subtract"), "subtract"),
+                    (tr(self.language, "gas_add"), "add"),
+                ],
+                operation_data,
+            )
 
             for form, field, key in (
                 (self.eval_form, self.profile, "profile"),
@@ -298,6 +309,7 @@ def _build_gui_classes():
                 (self.eval_form, self.window_basis, "window_basis"),
                 (self.eval_form, self.zero_target, "target_x"),
                 (self.gas_form, self.gas_mode, "mode"),
+                (self.gas_form, self.gas_operation, "gas_operation"),
                 (self.gas_form, self.gas_force, "gas_force"),
                 (self.gas_form, self.gas_pressure, "gauge_pressure"),
                 (self.gas_form, self.rod_dia, "rod_diameter"),
@@ -365,6 +377,7 @@ def _build_gui_classes():
             self.window_basis.setEnabled(p == EvaluationProfile.WINDOW_MEAN.value)
             self.zero_target.setEnabled(p == EvaluationProfile.ZERO_CROSSING.value)
             g = self.gas_mode.currentData()
+            self.gas_operation.setEnabled(g != "off")
             self.gas_force.setEnabled(g == "direct")
             self.gas_pressure.setEnabled(g == "pressure")
             self.rod_dia.setEnabled(g == "pressure")
@@ -395,6 +408,7 @@ def _build_gui_classes():
                 window_basis=self.window_basis.currentData(),
                 zero_target_mm=float(self.zero_target.value()),
                 gas_mode=self.gas_mode.currentData(),
+                gas_operation=self.gas_operation.currentData(),
                 gas_force_n=float(self.gas_force.value()),
                 gas_gauge_pressure_mpa=float(self.gas_pressure.value()),
                 piston_rod_diameter_mm=float(self.rod_dia.value()),
