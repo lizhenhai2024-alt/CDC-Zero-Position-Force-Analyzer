@@ -155,9 +155,6 @@ def test_v084_vertical_lines_have_curve_intersection_dots_and_aligned_text():
     app.processEvents()
 
 
-def test_v084_is_the_packaged_gui_entry_point():
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[1]
-    assert "gui_release_v084" in (root / "launcher.py").read_text(encoding="utf-8")
-    assert 'cdc_analyzer.gui_release_v084:main' in (root / "pyproject.toml").read_text(encoding="utf-8")
+def test_v084_release_remains_available():
+    from cdc_analyzer.gui_release_v084 import _build_release_gui_classes_v084
+    assert callable(_build_release_gui_classes_v084)

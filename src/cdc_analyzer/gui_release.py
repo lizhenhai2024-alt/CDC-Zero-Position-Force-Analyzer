@@ -44,11 +44,13 @@ def _release_help_html(language: str) -> str:
           <li><b>计时基准：</b>I₁₀% 是实测电流从起始平台到终止平台变化 10% 时的交点。t₁%、t₆₃%、t₉₀% 均为相应力阈值交点时刻减去 I₁₀% 电流交点时刻，单位 ms。</li>
           <li><b>Audi：</b>计算 F₁% / F₆₃% / F₉₀% 力响应、死区时间和力梯度，并检查 4 kHz 采样要求。</li>
           <li><b>BMW：</b>支持软→硬、软→中、硬→中、硬→软设定值跳变，输出 t₆₃% 与 t₉₀%。提供可见的电流触发比例设置，因为当前导入的 BMW 摘录没有给出该触发百分比的规范定义。</li>
-          <li><b>图形标注：</b>I/F 水平参考文字位于虚线上方；响应时间文字与垂直虚线错开；显示范围覆盖目标速度终值窗口，使 F₁%、F₆₃%、F₉₀%、F₁₀₀% 参考线均与实测曲线相交。</li>
+          <li><b>图形标注：</b>文字透明背景、正常字重，与坐标轴标题同为 10 pt。电流/载荷图的竖向参考线与实测曲线交点用圆点标出；文字水平放置于交点上方或下方，窗口缩放、平移时重新排布。虚线在文字区域断开，不遮盖实测曲线。</li>
           <li>若未输入客户 t₉₀% 限值，只报告测量值，不自动判定 PASS/FAIL。</li>
         </ul>
+        <p><b>显示缩放：</b>使用 Qt 自动 DPI 缩放，支持 100% / 150%。工具栏自动换行；较小屏幕可滚动查看完整响应图，字体不会被二次放大或裁切。</p>
         <h2>12. 迟滞 / Hysteresis</h2>
         <ul>
+          <li><b>迟滞图：</b>首图为所有速度的电流—阻尼力图，共用纵轴“压缩&lt;--阻尼力(N)--&gt;复原”。复原绘为正值、压缩为负值。图形选择器可查看单一速度的电流—阻尼力迟滞，以及单一电流的速度—阻尼力图。不同速度分组不混合求均值；默认分组容差 3%，可按试验速度点间距调整。Excel 包含全部分组图，PNG 导出当前选中图。单一方向或未配对的工况仅显示实测点，不制造迟滞值。</li>
           <li><b>BMW：</b>自动识别升/降电流档位，在零位移处分别计算复原与压缩载荷；按运动方向把载荷归一为正阻尼幅值后计算迟滞 N 和迟滞 %。</li>
           <li><b>Audi：</b>按 ±3% 每行程采样点的滑动平均平滑载荷，切换后的第一个循环不参与均值，至少使用 4 个后续循环；在 KFM 前/后平台计算迟滞，并输出第一循环差值。</li>
           <li>Audi 的软 / KFM / 硬电流允许手动输入；留空时根据阻尼力水平自动推断，正式客户报告前应人工确认状态映射。</li>
@@ -75,11 +77,13 @@ def _release_help_html(language: str) -> str:
           <li><b>Timing reference:</b>I₁₀% is the measured-current crossing at 10% of the change from the initial to final plateau. t₁%, t₆₃% and t₉₀% equal their force-threshold crossing time minus the I₁₀% current crossing time, in ms.</li>
           <li><b>Audi:</b>F₁% / F₆₃% / F₉₀% response, dead time and force gradients are reported; 4 kHz sampling is checked.</li>
           <li><b>BMW:</b>supports soft→hard, soft→medium, hard→medium and hard→soft setpoint changes and reports t₆₃% / t₉₀%. The current trigger fraction remains visible because the supplied BMW excerpt does not define that percentage.</li>
-          <li><b>Plot labels:</b>I/F level text is above horizontal dashed lines; response-time text is offset from vertical markers; the displayed data covers the target-speed endpoint window so every F-level reference intersects the measured trace.</li>
+          <li><b>Plot labels:</b>Transparent, normal-weight 10 pt text matches the axis titles. Circular markers identify vertical-guide intersections with measured current/force. Labels are horizontal above or below the intersections and relayout on zoom/resize; dashed guides break around text without covering measured curves.</li>
           <li>No PASS/FAIL is assigned without an entered project t₉₀% limit.</li>
         </ul>
+        <p>Qt handles 100% / 150% display scaling. Controls wrap and the full response graph remains scrollable on smaller displays.</p>
         <h2>11. Hysteresis</h2>
         <ul>
+          <li><b>Plots:</b>The first graph overlays all speeds on a shared current–force axis: positive rebound, negative compression. Select a speed for current–force hysteresis or a current for speed–force curves. Separate speed groups are never averaged together. The default 3% grouping tolerance is adjustable. Excel includes all grouped plots; PNG exports the selected view. Unpaired conditions retain measured points without invented hysteresis values.</li>
           <li><b>BMW:</b>pairs increasing/decreasing current results at zero displacement and calculates absolute and percentage hysteresis using direction-normalized damping magnitude.</li>
           <li><b>Audi:</b>applies the ±3% samples-per-stroke moving average, excludes the first post-switch cycle, uses at least four retained cycles, compares KFM before/after and reports first-cycle delta.</li>
           <li>Soft / KFM / hard currents can be entered explicitly; automatic force-level inference must be verified before controlled reporting.</li>
