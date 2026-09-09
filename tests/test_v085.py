@@ -57,7 +57,7 @@ def test_combines_separate_speed_files_without_block_id_collisions():
 
 def test_v085_gui_response_and_hysteresis(tmp_path):
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from PySide6 import QtWidgets
+    from PySide6 import QtCore, QtWidgets
     import pyqtgraph as pg
     from cdc_analyzer.gui_release_v085 import _build_release_gui_classes_v085
     from test_gui_v083 import _fake_response_result
@@ -78,14 +78,36 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
             assert not item.textItem.font().bold()
             assert item.textItem.font().pointSizeF() == manager.plot.getAxis("left").label.font().pointSizeF()
             assert item.fill.style().value == 0
+            assert item.border.style().value == 0
         rects = manager.text_rects
         for i, rect in enumerate(rects):
             assert all(not rect.intersects(other) for other in rects[i + 1:])
+        level_rects = [
+            rect for (_, _, _, level), rect in zip(manager.labels, rects) if level
+        ]
+        if len(level_rects) > 1:
+            assert max(rect.left() for rect in level_rects) - min(
+                rect.left() for rect in level_rects
+            ) < 1
+        assert len(manager.lines) == len(manager.guides)
+        for (_, x, y, level), rect in zip(manager.labels, rects):
+            if not level:
+                point = manager.plot.vb.mapViewToScene(QtCore.QPointF(x, y))
+                assert not rect.contains(point)
         dots = [item for item in manager.plot.items if isinstance(item, pg.ScatterPlotItem)]
         assert len(dots) == 1
         for point in dots[0].points():
             signal = manager.plot.listDataItems()[0]
             assert point.pos().y() == pytest.approx(np.interp(point.pos().x(), signal.xData, signal.yData))
+    force_annotations = pages.response_annotations[1]
+    response_placements = [
+        force_annotations.placements[item]
+        for item, _, _, level in force_annotations.labels
+        if not level and item.textItem.toPlainText().startswith(("t₁%", "t₆₃%", "t₉₀%"))
+    ]
+    assert [placement.split("-", 1)[0] for placement in response_placements] == [
+        "above", "below", "above"
+    ]
     pages.hysteresis_result = analyze_hysteresis_v085(multi_speed_data(), HysteresisConfig(standard=HysteresisStandard.BMW))
     pages._rebuild_hysteresis_views()
     assert pages.hysteresis_multi_file_button.isVisibleTo(pages.hysteresis_page)

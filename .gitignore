@@ -5,6 +5,8 @@ __pycache__/
 dist/
 build/
 outputs/
+src/cdc_analyzer/assets/damper_test_data_analyzer.png
 *.egg-info/
+*.spec
 *.xlsx
 *.dat

@@ -24,6 +24,27 @@ def _qt_imports():
 
 def _build_gui_classes():
     QtCore, QtWidgets, pg = _qt_imports()
+    from PySide6 import QtGui
+
+    class CurveColorItemDelegate(QtWidgets.QStyledItemDelegate):
+        """Preserve each curve color while a Y-field row is selected."""
+
+        def paint(self, painter, option, index):
+            styled = QtWidgets.QStyleOptionViewItem(option)
+            self.initStyleOption(styled, index)
+            if styled.state & QtWidgets.QStyle.StateFlag.State_Selected:
+                brush = index.data(QtCore.Qt.ItemDataRole.ForegroundRole)
+                if brush is not None:
+                    styled.palette.setBrush(
+                        QtGui.QPalette.ColorRole.HighlightedText, brush
+                    )
+            style = styled.widget.style() if styled.widget else QtWidgets.QApplication.style()
+            style.drawControl(
+                QtWidgets.QStyle.ControlElement.CE_ItemViewItem,
+                styled,
+                painter,
+                styled.widget,
+            )
 
     class DataFrameModel(QtCore.QAbstractTableModel):
         def __init__(self, frame: pd.DataFrame | None = None, parent=None, language_getter=None):
@@ -176,6 +197,7 @@ def _build_gui_classes():
             self.plot_form.addRow("", self.x_axis)
             self.y_axis = QtWidgets.QListWidget()
             self.y_axis.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.MultiSelection)
+            self.y_axis.setItemDelegate(CurveColorItemDelegate(self.y_axis))
             self.y_axis.setMaximumHeight(150)
             self.y_axis.itemSelectionChanged.connect(self.refresh_plot)
             self.plot_form.addRow("", self.y_axis)
@@ -528,6 +550,7 @@ def _build_gui_classes():
                 for item in self.y_axis.selectedItems()
                 if item.data(QtCore.Qt.ItemDataRole.UserRole)
             ]
+            self._sync_y_axis_colors(ys)
             if not ys:
                 return
             x = self.x_axis.currentData()
@@ -569,6 +592,22 @@ def _build_gui_classes():
                     previous = p
                     if audi_overlay and y in {"Axial Load", "Analysis Axial Load", "Corrected Axial Load"}:
                         self._overlay(p, y)
+
+        def _sync_y_axis_colors(self, selected_channels):
+            """Show selected Y fields in the exact colors used by their curves."""
+            colors = {
+                channel: pg.intColor(index, hues=max(1, len(selected_channels)))
+                for index, channel in enumerate(selected_channels)
+            }
+            default_brush = self.y_axis.palette().brush(
+                self.y_axis.foregroundRole()
+            )
+            for index in range(self.y_axis.count()):
+                item = self.y_axis.item(index)
+                channel = item.data(QtCore.Qt.ItemDataRole.UserRole)
+                item.setForeground(
+                    pg.mkBrush(colors[channel]) if channel in colors else default_brush
+                )
 
         def _style_plot(self, plot, x, y):
             plot.showGrid(x=True, y=True, alpha=.25)
