@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "status": "PASS",
+  "verified_at_utc": "2026-09-09T05:17:00Z",
+  "verified_against_commit": "0b83cfa37474228cc0a1a4d63109054550c1026d",
+  "algorithm_fingerprint_scheme": "sha256(sorted(path:git_blob_sha1))",
+  "algorithm_files": {
+    "src/cdc_analyzer/parser.py": "95acb5ff86434a66e85a5abe3e4fe9455d6237ff",
+    "src/cdc_analyzer/analysis.py": "3c012c127eac6deb65b1178069d3b69f8b87bdcf",
+    "src/cdc_analyzer/dynamic_analysis.py": "dab15c91604800328a83b93c6e37c36395d03f8c",
+    "src/cdc_analyzer/response_v074.py": "a4aa9fa4568236bc37dbf3742bc6b97d58fda6db",
+    "src/cdc_analyzer/response_v075.py": "b19a7dda8d16e29e1ff81f57abbe2667786d30c5",
+    "src/cdc_analyzer/response_v080.py": "fac4a661944be65e2c672cd31bff6faa1dbbd5ac"
+  },
+  "algorithm_fingerprint": "181abe7c8c91be5bba4af75875ed8f9466dc6edb215c2236c3f18f36577cfdb8",
+  "cases": [
+    {
+      "id": "REAL-AUDI-CENTER-001",
+      "domain": "audi_center_window",
+      "status": "PASS",
+      "source_sha256": "ec13f0505639daf3a332df5003fcc72c6f99ed1cf4b9dce951923d9ed76d7b1a",
+      "source_size_bytes": 128988,
+      "expected_digest": "92dddcc7b27cbc3148bc78b8fcf8640c83e2b3f5085a73a0998d02597cd71d85",
+      "measured": {"run_count": 15, "complete_cycle_count": 15, "summary_current_count": 8, "all_status_ok": true}
+    },
+    {
+      "id": "REAL-BMW-HYST-001",
+      "domain": "bmw_hysteresis",
+      "status": "PASS",
+      "source_sha256": "d3e8bf967fbbea1bc34a3ea0d49a2c7f3942ac50afa20f2de4bd6f74c0e79460",
+      "source_size_bytes": 30608,
+      "expected_digest": "77c39ebf355eca29e10f0282b00e973d7d7e2816926e87ca46d95468a65f3c81",
+      "measured": {"block_count": 15, "run_row_count": 30, "paired_summary_count": 14, "max_hysteresis_percent": 1.9229462557583277}
+    },
+    {
+      "id": "REAL-BMW-RESPONSE-1048-001",
+      "domain": "bmw_response",
+      "status": "PASS",
+      "source_sha256": "7b61630e642a939dd1fc819625d52862b01e6f893196babcb9edf58dbbcc10a2",
+      "source_size_bytes": 7521,
+      "expected_digest": "e286052a171b143907c78a2d9a88cd7d1b906ca0c5a7379ef7c9aca99a480675",
+      "measured": {"event_count": 1, "target_velocity_mps": 1.048, "switch_time_t90_ms": 7.503812196092863, "sample_rate_hz": 4096.01048578678, "timing_identity_error_ms": 0.0}
+    }
+  ],
+  "notes": [
+    "Raw bench DAT files were verified from private storage and are intentionally not committed to this public repository.",
+    "Audi reference workbook values were rechecked against the real DAT before this evidence was frozen.",
+    "BMW response timing uses F-threshold crossing time minus I10% current crossing time."
+  ]
+}

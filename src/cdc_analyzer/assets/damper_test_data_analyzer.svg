@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b78d1"/>
+      <stop offset="1" stop-color="#063b86"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a4f9e"/>
+      <stop offset="0.45" stop-color="#1e8ef0"/>
+      <stop offset="1" stop-color="#063b86"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="476" height="476" rx="96" fill="url(#bg)"/>
+  <rect x="40" y="40" width="432" height="432" rx="78" fill="#f8fbff"/>
+  <path d="M72 356 C180 318 248 340 442 286 L442 442 L72 442 Z" fill="#06488f"/>
+  <path d="M66 354 C176 314 276 344 446 278" fill="none" stroke="#4acb63" stroke-width="13" stroke-linecap="round"/>
+
+  <!-- simplified damper -->
+  <g transform="rotate(18 148 232)">
+    <circle cx="142" cy="96" r="33" fill="#263747" stroke="#dfe7ef" stroke-width="11"/>
+    <circle cx="142" cy="96" r="13" fill="#f8fbff"/>
+    <rect x="102" y="126" width="80" height="192" rx="26" fill="url(#body)" stroke="#17314f" stroke-width="8"/>
+    <rect x="118" y="302" width="48" height="80" rx="16" fill="#dbe6f0" stroke="#23384d" stroke-width="7"/>
+    <circle cx="142" cy="410" r="35" fill="#263747" stroke="#dfe7ef" stroke-width="11"/>
+    <circle cx="142" cy="410" r="14" fill="#f8fbff"/>
+    <rect x="98" y="136" width="88" height="18" rx="8" fill="#1a2a39"/>
+    <rect x="98" y="286" width="88" height="20" rx="8" fill="#1a2a39"/>
+  </g>
+
+  <!-- force-displacement chart -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M252 245 H438" stroke="#2d4866" stroke-width="6"/>
+    <path d="M345 120 V323" stroke="#2d4866" stroke-width="6"/>
+    <path d="M438 245 l-18 -12 v24 z" fill="#2d4866" stroke="none"/>
+    <path d="M345 120 l-12 18 h24 z" fill="#2d4866" stroke="none"/>
+    <path d="M254 294 C284 205 357 147 425 168 C454 177 415 253 334 305 C286 336 243 327 254 294 Z" stroke="#1675e5" stroke-width="10"/>
+    <path d="M266 291 C301 232 360 184 414 188 C433 192 396 250 334 292 C300 315 263 314 266 291 Z" stroke="#29a94c" stroke-width="9"/>
+  </g>
+
+  <!-- current waveform -->
+  <path d="M252 350 H281 V326 H311 V350 H341 V326 H371 V350 H401 V326 H431" fill="none" stroke="#29a94c" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- compact D mark for small-icon recognition -->
+  <path d="M284 381 H342 C385 381 416 402 416 434 C416 466 385 483 342 483 H284 Z M315 408 V456 H342 C366 456 383 448 383 433 C383 418 366 408 342 408 Z" fill="#ffffff"/>
+</svg>

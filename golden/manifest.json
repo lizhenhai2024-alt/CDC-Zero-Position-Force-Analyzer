@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "status": "validated_private_source",
+  "policy": "Real bench DAT remains private. Public CI verifies evidence freshness against frozen algorithm blobs and approved expected outputs. Re-run tools/run_golden_regression.py with the private DAT files whenever a frozen algorithm file or approved expected output changes.",
+  "required_domains": [
+    "audi_center_window",
+    "bmw_hysteresis",
+    "bmw_response"
+  ],
+  "algorithm_files": [
+    "src/cdc_analyzer/parser.py",
+    "src/cdc_analyzer/analysis.py",
+    "src/cdc_analyzer/dynamic_analysis.py",
+    "src/cdc_analyzer/response_v074.py",
+    "src/cdc_analyzer/response_v075.py",
+    "src/cdc_analyzer/response_v080.py"
+  ],
+  "cases": [
+    {
+      "id": "REAL-AUDI-CENTER-001",
+      "domain": "audi_center_window",
+      "source_visibility": "private",
+      "source_sha256": "ec13f0505639daf3a332df5003fcc72c6f99ed1cf4b9dce951923d9ed76d7b1a",
+      "source_size_bytes": 128988,
+      "expected": {
+        "profile": "audi",
+        "force_channel": "Analysis Axial Load",
+        "run_count": 15,
+        "complete_cycle_count": 15,
+        "summary": [
+          {"current_a": 0.3, "rebound_n": 149.49164, "compression_n": -565.0563050000001, "run_count": 2},
+          {"current_a": 0.5, "rebound_n": 154.893965, "compression_n": -569.56549, "run_count": 2},
+          {"current_a": 0.7, "rebound_n": 394.3291, "compression_n": -656.08618, "run_count": 2},
+          {"current_a": 0.9, "rebound_n": 861.566225, "compression_n": -775.50882, "run_count": 2},
+          {"current_a": 1.1, "rebound_n": 1159.4787, "compression_n": -842.864165, "run_count": 2},
+          {"current_a": 1.3, "rebound_n": 1441.2019, "compression_n": -852.3878500000001, "run_count": 2},
+          {"current_a": 1.5, "rebound_n": 1458.19385, "compression_n": -858.494625, "run_count": 2},
+          {"current_a": 1.7, "rebound_n": 1469.509, "compression_n": -859.05255, "run_count": 1}
+        ]
+      },
+      "tolerance": {"force_n_abs": 1e-06}
+    },
+    {
+      "id": "REAL-BMW-HYST-001",
+      "domain": "bmw_hysteresis",
+      "source_visibility": "private",
+      "source_sha256": "d3e8bf967fbbea1bc34a3ea0d49a2c7f3942ac50afa20f2de4bd6f74c0e79460",
+      "source_size_bytes": 30608,
+      "expected": {
+        "standard": "bmw",
+        "zero_target_mm": 0.0,
+        "block_count": 15,
+        "paired_summary": [
+          {"current_a": 0.3, "direction": "Compression", "up_force_n": -1452.200098591166, "down_force_n": -1447.0790551892735, "reference_force_n": 1449.6395768902198, "hysteresis_n": 5.121043401892393, "hysteresis_percent": 0.3532632168389127},
+          {"current_a": 0.3, "direction": "Rebound", "up_force_n": 714.6348027619946, "down_force_n": 705.9711680138022, "reference_force_n": 710.3029853878984, "hysteresis_n": 8.663634748192408, "hysteresis_percent": 1.219709747307506},
+          {"current_a": 0.5, "direction": "Compression", "up_force_n": -1473.2819101714806, "down_force_n": -1453.192341841114, "reference_force_n": 1463.2371260062973, "hysteresis_n": 20.089568330366546, "hysteresis_percent": 1.3729537047216835},
+          {"current_a": 0.5, "direction": "Rebound", "up_force_n": 764.903754214437, "down_force_n": 754.6686514652403, "reference_force_n": 759.7862028398386, "hysteresis_n": 10.235102749196699, "hysteresis_percent": 1.3471030022578916},
+          {"current_a": 0.7, "direction": "Compression", "up_force_n": -1666.3814359224032, "down_force_n": -1663.353740414402, "reference_force_n": 1664.8675881684026, "hysteresis_n": 3.027695508001216, "hysteresis_percent": 0.18185803661011402},
+          {"current_a": 0.7, "direction": "Rebound", "up_force_n": 1398.9944775451997, "down_force_n": 1389.7967703689662, "reference_force_n": 1394.395623957083, "hysteresis_n": 9.197707176233507, "hysteresis_percent": 0.6596196243166491},
+          {"current_a": 0.9, "direction": "Compression", "up_force_n": -1983.6005249365403, "down_force_n": -2000.61319222983, "reference_force_n": 1992.1068585831852, "hysteresis_n": 17.012667293289724, "hysteresis_percent": 0.8540037508524705},
+          {"current_a": 0.9, "direction": "Rebound", "up_force_n": 2276.8115716950424, "down_force_n": 2317.057790733264, "reference_force_n": 2296.934681214153, "hysteresis_n": 40.246219038221625, "hysteresis_percent": 1.75217081127216},
+          {"current_a": 1.1, "direction": "Compression", "up_force_n": -2100.061411626922, "down_force_n": -2062.6632940843865, "reference_force_n": 2081.3623528556545, "hysteresis_n": 37.3981175425356, "hysteresis_percent": 1.796809550784126},
+          {"current_a": 1.1, "direction": "Rebound", "up_force_n": 3009.001532964666, "down_force_n": 2999.764569992257, "reference_force_n": 3004.3830514784613, "hysteresis_n": 9.236962972408946, "hysteresis_percent": 0.3074495766398171},
+          {"current_a": 1.3, "direction": "Compression", "up_force_n": -2147.5952826440293, "down_force_n": -2110.237770250817, "reference_force_n": 2128.916526447423, "hysteresis_n": 37.357512393212346, "hysteresis_percent": 1.754766423630135},
+          {"current_a": 1.3, "direction": "Rebound", "up_force_n": 3433.593074074664, "down_force_n": 3500.2602101288476, "reference_force_n": 3466.9266421017555, "hysteresis_n": 66.66713605418363, "hysteresis_percent": 1.9229462557583277},
+          {"current_a": 1.5, "direction": "Compression", "up_force_n": -2143.8759492244885, "down_force_n": -2126.658630099834, "reference_force_n": 2135.2672896621616, "hysteresis_n": 17.217319124654296, "hysteresis_percent": 0.8063308611531435},
+          {"current_a": 1.5, "direction": "Rebound", "up_force_n": 3706.5146631729667, "down_force_n": 3719.789679006747, "reference_force_n": 3713.152171089857, "hysteresis_n": 13.275015833780344, "hysteresis_percent": 0.35751338006392447}
+        ]
+      },
+      "tolerance": {"force_n_abs": 1e-06, "hysteresis_percent_abs": 1e-06}
+    },
+    {
+      "id": "REAL-BMW-RESPONSE-1048-001",
+      "domain": "bmw_response",
+      "source_visibility": "private",
+      "source_sha256": "7b61630e642a939dd1fc819625d52862b01e6f893196babcb9edf58dbbcc10a2",
+      "source_size_bytes": 7521,
+      "expected": {
+        "standard": "bmw",
+        "target_speeds_mps": [1.048],
+        "event_count": 1,
+        "target_velocity_mps": 1.048,
+        "sample_rate_hz": 4096.01048578678,
+        "current_start_a": 1.620018,
+        "current_end_a": 0.27398512,
+        "trigger_current_a": 1.4854147119999999,
+        "i10_crossing_time_s": 0.27771467330840727,
+        "f0_n": 7239.254476904297,
+        "f100_n": 3884.314866666667,
+        "dead_time_t1_ms": 1.0182879208484041,
+        "switch_time_t63_ms": 5.614354985683634,
+        "switch_time_t90_ms": 7.503812196092863,
+        "timing_reference": "I10% current crossing"
+      },
+      "tolerance": {"time_ms_abs": 1e-06, "time_s_abs": 1e-09, "force_n_abs": 1e-06, "current_a_abs": 1e-09, "sample_rate_hz_abs": 1e-06}
+    }
+  ]
+}
