@@ -24,6 +24,32 @@ def speed_groups(values, relative_tolerance=0.03):
     return labels
 
 
+def combine_hysteresis_datasets(datasets):
+    """Combine independently recorded speed files without colliding block IDs."""
+    datasets = list(datasets)
+    if not datasets:
+        raise ValueError("至少选择一个迟滞数据文件 / Select at least one hysteresis data file")
+    frames = []
+    next_block_id = 1
+    source_files = []
+    for dataset in datasets:
+        frame = dataset.data.copy()
+        if frame.empty:
+            raise ValueError(f"迟滞数据文件为空 / Empty hysteresis data file: {dataset.source_path}")
+        original_ids = frame["Block ID"] if "Block ID" in frame else pd.Series(1, index=frame.index)
+        ordered_ids = list(pd.unique(original_ids))
+        id_map = {old: next_block_id + offset for offset, old in enumerate(ordered_ids)}
+        frame["Block ID"] = original_ids.map(id_map).astype(int)
+        next_block_id += len(ordered_ids)
+        frame["Source File"] = str(dataset.source_path)
+        frames.append(frame)
+        source_files.append(str(dataset.source_path))
+    metadata = dict(datasets[0].metadata)
+    metadata.update({"source_files": source_files, "source_file_count": len(source_files)})
+    source_path = datasets[0].source_path if len(datasets) == 1 else datasets[0].source_path.parent / "multi_speed_hysteresis"
+    return DataSet(pd.concat(frames, ignore_index=True), source_path, "combined", metadata)
+
+
 def analyze_hysteresis_v085(dataset, config=None, *, speed_tolerance=0.03):
     config = config or HysteresisConfig()
     if not np.isfinite(speed_tolerance) or not 0 <= speed_tolerance < 1:

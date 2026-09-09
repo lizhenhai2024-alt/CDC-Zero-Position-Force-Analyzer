@@ -7,7 +7,7 @@ import pytest
 
 from cdc_analyzer.dynamic_analysis import TIME, CURRENT, LOAD, DISP, HysteresisConfig, HysteresisStandard
 from cdc_analyzer.parser import DataSet
-from cdc_analyzer.hysteresis_v085 import analyze_hysteresis_v085, speed_groups
+from cdc_analyzer.hysteresis_v085 import analyze_hysteresis_v085, combine_hysteresis_datasets, speed_groups
 
 
 def multi_speed_data():
@@ -38,6 +38,21 @@ def test_hysteresis_separates_speeds_and_does_not_average_them(standard):
 
 def test_speed_groups_do_not_chain_distinct_conditions():
     assert len(np.unique(speed_groups([0.1, 0.102, 0.104, 0.3]))) == 3
+
+
+def test_combines_separate_speed_files_without_block_id_collisions():
+    combined = multi_speed_data()
+    files = []
+    for index, block_ids in enumerate(np.array_split(combined.data["Block ID"].unique(), 4), start=1):
+        frame = combined.data[combined.data["Block ID"].isin(block_ids)].copy()
+        frame["Block ID"] -= int(frame["Block ID"].min()) - 1
+        files.append(DataSet(frame, Path(f"speed_{index}.dat"), "synthetic"))
+    merged = combine_hysteresis_datasets(files)
+    assert merged.data["Block ID"].nunique() == 20
+    assert merged.metadata["source_file_count"] == 4
+    assert merged.data["Source File"].nunique() == 4
+    result = analyze_hysteresis_v085(merged, HysteresisConfig(standard=HysteresisStandard.BMW))
+    assert result.runs["Speed Group m/s"].nunique() == 4
 
 
 def test_v085_gui_response_and_hysteresis(tmp_path):
@@ -73,6 +88,7 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
             assert point.pos().y() == pytest.approx(np.interp(point.pos().x(), signal.xData, signal.yData))
     pages.hysteresis_result = analyze_hysteresis_v085(multi_speed_data(), HysteresisConfig(standard=HysteresisStandard.BMW))
     pages._rebuild_hysteresis_views()
+    assert pages.hysteresis_multi_file_button.isVisibleTo(pages.hysteresis_page)
     assert pages.hysteresis_view_combo.count() == 1 + 4 + 3
     plot = pages.hysteresis_plot_area.getItem(0, 0)
     assert plot.getAxis("left").label.toPlainText().strip() == "压缩<--阻尼力(N)-->复原"
@@ -81,6 +97,13 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     for i in range(pages.hysteresis_view_combo.count()):
         pages.hysteresis_view_combo.setCurrentIndex(i)
         assert pages.hysteresis_plot_area.getItem(0, 0).listDataItems()
+    window.tabs.setCurrentIndex(0)
+    pages.hysteresis_view_combo.setCurrentIndex(0)
+    pages._prepare_hysteresis_plot_for_export()
+    plot = pages.hysteresis_plot_area.getItem(0, 0)
+    ys = np.concatenate([p.yData for p in plot.listDataItems()])
+    y_range = plot.viewRange()[1]
+    assert y_range[0] < np.nanmin(ys) < 0 < np.nanmax(ys) < y_range[1]
     from cdc_analyzer.dynamic_export import export_hysteresis_xlsx
     from openpyxl import load_workbook
     workbook_path = export_hysteresis_xlsx(pages.hysteresis_result, tmp_path / "grouped.xlsx")
