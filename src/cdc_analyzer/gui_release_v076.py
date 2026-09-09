@@ -12,6 +12,11 @@ from .gui_release_v075 import (
 )
 from .i18n import tr
 from .product_info import COMPANY_EN, PRODUCT_NAME
+from .image_export import (
+    DEFAULT_PNG_EXPORT_PPI,
+    SUPPORTED_PNG_EXPORT_PPI,
+    export_plot_widget_png,
+)
 
 
 def _build_release_gui_classes_v076():
@@ -28,6 +33,7 @@ def _build_release_gui_classes_v076():
 
             _base_release.DynamicPagesController = DynamicPagesController
             super().__init__()
+            self.png_export_ppi = DEFAULT_PNG_EXPORT_PPI
 
             # V0.7.6 replaces the tab-attached language/help controls with a
             # conventional application menu bar.
@@ -62,6 +68,20 @@ def _build_release_gui_classes_v076():
             self.export_png_action.triggered.connect(self.export_png)
             self.export_menu.addAction(self.export_excel_action)
             self.export_menu.addAction(self.export_png_action)
+            self.png_resolution_menu = self.export_menu.addMenu("")
+            self.png_resolution_group = QtGui.QActionGroup(self)
+            self.png_resolution_group.setExclusive(True)
+            self.png_resolution_actions = {}
+            for ppi in SUPPORTED_PNG_EXPORT_PPI:
+                action = QtGui.QAction(self, checkable=True)
+                action.setData(ppi)
+                action.triggered.connect(
+                    lambda checked, value=ppi: self._set_png_export_ppi(value)
+                    if checked else None
+                )
+                self.png_resolution_group.addAction(action)
+                self.png_resolution_menu.addAction(action)
+                self.png_resolution_actions[ppi] = action
 
             self.language_menu = menu_bar.addMenu("")
             self.language_action_group = QtGui.QActionGroup(self)
@@ -95,6 +115,10 @@ def _build_release_gui_classes_v076():
                 self.language_combo.setCurrentIndex(index)
             self._refresh_v076_menus()
 
+        def _set_png_export_ppi(self, ppi: int):
+            self.png_export_ppi = int(ppi)
+            self._refresh_v076_menus()
+
         def _refresh_v076_menus(self):
             if not hasattr(self, "file_menu"):
                 return
@@ -105,6 +129,10 @@ def _build_release_gui_classes_v076():
             self.export_menu.setTitle("导出" if zh else "Export")
             self.export_excel_action.setText("导出 Excel…" if zh else "Export Excel…")
             self.export_png_action.setText("导出 PNG…" if zh else "Export PNG…")
+            self.png_resolution_menu.setTitle("图片分辨率" if zh else "Image Resolution")
+            for ppi, action in self.png_resolution_actions.items():
+                action.setText(f"{ppi} PPI")
+                action.setChecked(ppi == self.png_export_ppi)
             self.language_menu.setTitle("语言" if zh else "Language")
             self.help_menu.setTitle("帮助" if zh else "Help")
             self.help_guide_action.setText("使用说明" if zh else "User Guide")
@@ -201,12 +229,7 @@ def _build_release_gui_classes_v076():
             if not filename:
                 return
             try:
-                import pyqtgraph.exporters
-
-                exporter = pyqtgraph.exporters.ImageExporter(self.plot_area.scene())
-                params = exporter.parameters()
-                params["width"] = max(2400, int(max(self.plot_area.width(), 800) * 3.0))
-                exporter.export(filename)
+                export_plot_widget_png(self.plot_area, filename, ppi=self.png_export_ppi)
                 self.statusBar().showMessage(
                     tr(self.language, "plot_exported").format(path=filename)
                 )

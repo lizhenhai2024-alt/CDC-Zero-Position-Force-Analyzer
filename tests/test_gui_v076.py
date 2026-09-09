@@ -46,6 +46,14 @@ def test_v076_uses_menu_bar_and_hides_duplicate_dynamic_actions():
     assert pages.response_export_button.isHidden()
     assert pages.hysteresis_open_button.isHidden()
     assert pages.hysteresis_export_button.isHidden()
+    assert window.png_export_ppi == 300
+    assert window.png_resolution_menu.title() == "图片分辨率"
+    window.png_resolution_actions[600].trigger()
+    assert window.png_export_ppi == 600
+    assert window.png_resolution_actions[600].isChecked()
+    window.png_resolution_actions[300].trigger()
+    assert window.png_export_ppi == 300
+    assert window.png_resolution_actions[300].isChecked()
 
     window.language_en_action.trigger()
     app.processEvents()

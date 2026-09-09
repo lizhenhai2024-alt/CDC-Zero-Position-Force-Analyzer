@@ -8,6 +8,7 @@ from openpyxl.drawing.image import Image as XLImage
 
 from .dynamic_export import export_hysteresis_xlsx, export_response_xlsx
 from .dynamic_gui_v075 import DynamicPagesController as _V075DynamicPagesController
+from .image_export import DEFAULT_PNG_EXPORT_PPI, export_plot_widget_png
 
 
 class DynamicPagesController(_V075DynamicPagesController):
@@ -72,16 +73,11 @@ class DynamicPagesController(_V075DynamicPagesController):
             self._update_shared_source_labels()
 
     def _export_plot_widget_png(self, plot_widget, path: str | Path, scale: float = 3.0) -> Path:
-        import pyqtgraph.exporters
+        ppi = getattr(self.window, "png_export_ppi", DEFAULT_PNG_EXPORT_PPI)
+        return export_plot_widget_png(plot_widget, path, scale, ppi)
 
-        out = Path(path).with_suffix(".png")
-        out.parent.mkdir(parents=True, exist_ok=True)
-        exporter = pyqtgraph.exporters.ImageExporter(plot_widget.scene())
-        params = exporter.parameters()
-        base_width = max(int(plot_widget.width()), 800)
-        params["width"] = max(2400, int(base_width * float(scale)))
-        exporter.export(str(out))
-        return out
+    def _png_export_ppi(self) -> int:
+        return int(getattr(self.window, "png_export_ppi", DEFAULT_PNG_EXPORT_PPI))
 
     def export_response_png(self) -> None:
         if self.response_result is None:
@@ -111,7 +107,10 @@ class DynamicPagesController(_V075DynamicPagesController):
             self.QtWidgets.QApplication.processEvents()
             out = self._export_plot_widget_png(self.response_plot_area, path, 3.0)
             self.window.statusBar().showMessage(
-                self._text(f"已导出高清 PNG：{out}", f"High-resolution PNG exported: {out}")
+                self._text(
+                    f"已导出 {self._png_export_ppi()} PPI PNG：{out}",
+                    f"{self._png_export_ppi()}-PPI PNG exported: {out}",
+                )
             )
         except Exception as exc:
             self.QtWidgets.QMessageBox.critical(
@@ -146,7 +145,10 @@ class DynamicPagesController(_V075DynamicPagesController):
             self.QtWidgets.QApplication.processEvents()
             out = self._export_plot_widget_png(self.hysteresis_plot_area, path, 3.0)
             self.window.statusBar().showMessage(
-                self._text(f"已导出高清 PNG：{out}", f"High-resolution PNG exported: {out}")
+                self._text(
+                    f"已导出 {self._png_export_ppi()} PPI PNG：{out}",
+                    f"{self._png_export_ppi()}-PPI PNG exported: {out}",
+                )
             )
         except Exception as exc:
             self.QtWidgets.QMessageBox.critical(

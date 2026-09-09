@@ -9,6 +9,7 @@ from .analysis import AnalyzerConfig, CDCAnalyzer, EvaluationProfile
 from .export import export_xlsx
 from .formatting import format_value
 from .i18n import DEFAULT_LANGUAGE, display_channel, display_column, display_value, tr
+from .image_export import export_plot_widget_png
 from .parser import DataSet, load_test_data
 from .plotting import PlotSelection, available_plot_channels, evaluation_overlay, filter_processed_data, same_units, unit_for_channel
 
@@ -654,9 +655,7 @@ def _build_gui_classes():
             )
             if filename:
                 try:
-                    import pyqtgraph.exporters
-
-                    pyqtgraph.exporters.ImageExporter(self.plot_area.scene()).export(filename)
+                    export_plot_widget_png(self.plot_area, filename)
                     self.statusBar().showMessage(tr(self.language, "plot_exported").format(path=filename))
                 except Exception as exc:
                     QtWidgets.QMessageBox.critical(self, tr(self.language, "export_error"), str(exc))
