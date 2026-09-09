@@ -1,0 +1,307 @@
+from __future__ import annotations
+
+import html
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import numpy as np
+from PySide6 import QtCore, QtGui, QtWidgets
+
+from . import dynamic_gui as _base
+from .dynamic_analysis import CURRENT, LOAD, TIME, VELOCITY
+from .dynamic_gui_v083 import DynamicPagesController as _BaseController
+from .hysteresis_v085 import analyze_hysteresis_v085
+from .plot_layout_v085 import FlowLayout, IntersectionLabels
+
+
+class DynamicPagesController(_BaseController):
+    def _font(self):
+        font = QtGui.QFont(QtWidgets.QApplication.font())
+        font.setPointSizeF(10.0)
+        font.setBold(False)
+        return font
+
+    def _axis_style(self, plot, left, units=None):
+        super()._axis_style(plot, left, units)
+        for side in ("left", "bottom"):
+            axis = plot.getAxis(side)
+            axis.setLabel(axis.labelText, units=axis.labelUnits, **{"font-size": "10pt", "font-weight": "normal"})
+            axis.label.setFont(self._font())
+            axis.setStyle(tickFont=self._font())
+            axis.enableAutoSIPrefix(False)
+        plot.setTitle("")
+
+    def _flow_controls(self, page, groups, source, status):
+        root = page.layout()
+        # Remove only the original top row; keep hidden compatibility widgets
+        # parented to the page for inherited language/configuration methods.
+        old = root.takeAt(0).layout()
+        while old.count():
+            old.takeAt(0)
+        old.deleteLater()
+        source.setMinimumWidth(0)
+        source.setWordWrap(True)
+        source.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
+        root.insertWidget(0, source)
+        flow = FlowLayout()
+        for widgets in groups:
+            group = QtWidgets.QWidget()
+            layout = QtWidgets.QHBoxLayout(group)
+            layout.setContentsMargins(0, 0, 0, 0)
+            for widget in widgets:
+                widget.setMaximumWidth(16777215)
+                layout.addWidget(widget)
+            flow.addWidget(group)
+        root.insertLayout(1, flow)
+        status.setWordWrap(True)
+        status.setMinimumWidth(0)
+        return flow
+
+    def configure_responsive_layout(self):
+        self.response_flow = self._flow_controls(self.response_page, [
+            [self.response_standard_label, self.response_standard],
+            [self.response_target_speed_label, self.response_target_speeds],
+            [self.response_trigger_label, self.response_trigger],
+            [self.response_limit_label, self.response_t90_limit],
+            [self.response_analyze_button],
+        ], self.response_file_label, self.response_status)
+        self.response_target_speeds.setMinimumWidth(160)
+        self.response_event_combo.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.response_event_combo.setMinimumContentsLength(22)
+        self.response_event_combo.setMinimumWidth(0)
+        event_row = self.response_page.layout().itemAt(2).layout()
+        if event_row is not None:
+            event_row.removeWidget(self.response_status)
+            self.response_page.layout().insertWidget(3, self.response_status)
+        graph_layout = self.response_graph_page.layout()
+        graph_layout.removeWidget(self.response_plot_area)
+        self.response_scroll = QtWidgets.QScrollArea()
+        self.response_scroll.setWidgetResizable(True)
+        self.response_plot_area.setMinimumSize(480, 740)
+        self.response_scroll.setWidget(self.response_plot_area)
+        graph_layout.addWidget(self.response_scroll)
+
+        self.hysteresis_speed_tolerance = QtWidgets.QDoubleSpinBox()
+        self.hysteresis_speed_tolerance.setRange(0, 20)
+        self.hysteresis_speed_tolerance.setValue(3)
+        self.hysteresis_speed_tolerance.setSuffix(" %")
+        self.speed_tolerance_label = QtWidgets.QLabel()
+        self._flow_controls(self.hysteresis_page, [
+            [self.hysteresis_standard_label, self.hysteresis_standard],
+            [self.hysteresis_limit_label, self.hysteresis_limit],
+            [self.speed_tolerance_label, self.hysteresis_speed_tolerance],
+            [self.hysteresis_analyze_button],
+        ], self.hysteresis_file_label, self.hysteresis_status)
+        self.hysteresis_view_combo = QtWidgets.QComboBox()
+        self.hysteresis_view_combo.currentIndexChanged.connect(self.refresh_hysteresis_plot)
+        self.hysteresis_page.layout().insertWidget(2, self.hysteresis_view_combo)
+        # Give plots a full page; tables remain accessible in their own tab.
+        splitter = self.hysteresis_plot_area.parentWidget()
+        self.hysteresis_page.layout().removeWidget(splitter)
+        self.hysteresis_plot_area.setParent(None)
+        self.hysteresis_tables.setParent(None)
+        splitter.hide()
+        splitter.deleteLater()
+        self.hysteresis_view_tabs = QtWidgets.QTabWidget()
+        self.hysteresis_view_tabs.addTab(self.hysteresis_plot_area, "")
+        self.hysteresis_view_tabs.addTab(self.hysteresis_tables, "")
+        self.hysteresis_page.layout().addWidget(self.hysteresis_view_tabs, 1)
+
+        self.window.tabs.setUsesScrollButtons(True)
+        self.window.tabs.tabBar().setExpanding(False)
+        for form in self.window.findChildren(QtWidgets.QFormLayout):
+            form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
+        self._v085_language()
+
+    def _v085_language(self):
+        if not hasattr(self, "hysteresis_view_combo"):
+            return
+        self.speed_tolerance_label.setText(self._text("速度分组容差", "Speed grouping tolerance"))
+        self.hysteresis_view_tabs.setTabText(0, self._text("图形分析", "Plot Analysis"))
+        self.hysteresis_view_tabs.setTabText(1, self._text("结果数据", "Result Data"))
+        self._rebuild_hysteresis_views()
+
+    def apply_language(self, language):
+        super().apply_language(language)
+        self._v085_language()
+
+    def refresh_response_plot(self):
+        for manager in getattr(self, "response_annotations", []):
+            manager.plot.vb.sigResized.disconnect(manager.update)
+            manager.plot.vb.sigRangeChanged.disconnect(manager.update)
+        self.response_plot_area.clear()
+        self.response_annotations = []
+        if self.response_result is None or self.response_result.events.empty:
+            return
+        events = self.response_result.events
+        event_id = self.response_event_combo.currentData()
+        selected = events[events["Event ID"] == event_id]
+        row = selected.iloc[0] if len(selected) else events.iloc[0]
+        self._sync_response_table_selection(int(row["Event ID"]))
+        start = float(row.get("Display Start s", row["Segment Start s"]))
+        end = max(float(row.get("Display End s", row["Segment End s"])), float(row.get("Target Window End s", row["Segment End s"])))
+        data = self.response_result.processed
+        data = data[data[TIME].between(start, end)]
+        if data.empty:
+            return
+        t = data[TIME].to_numpy(float)
+        t0 = float(row["t0 s"])
+        foreground = getattr(self.window, "_plot_foreground_color", "#202020")
+        current = self.response_plot_area.addPlot(row=0, col=0)
+        force = self.response_plot_area.addPlot(row=1, col=0)
+        velocity = self.response_plot_area.addPlot(row=2, col=0)
+        force.setXLink(current)
+        velocity.setXLink(current)
+        for plot, signal, title, units in (
+            (current, data[CURRENT].to_numpy(float), self._text("阀电流", "Valve current"), "A"),
+            (force, data[LOAD].to_numpy(float) / 1000, self._text("阻尼力", "Damping force"), "kN"),
+            (velocity, data[VELOCITY].to_numpy(float), self._text("速度", "Velocity"), "m/s"),
+        ):
+            self._axis_style(plot, title, units)
+            plot.plot(t, signal, pen=self._signal_pen())
+            span = max(float(np.ptp(signal)), 0.02)
+            plot.setYRange(float(np.min(signal)) - 0.24 * span, float(np.max(signal)) + 0.30 * span, padding=0)
+        current.setTitle(self._text("电流", "Current") + " | " + self._localized_stage(row.get("Stage", "")) + " | " + self._localized_direction(row.get("Direction", "")), size="10pt")
+        for plot, values, levels, markers in (
+            (current, data[CURRENT].to_numpy(float),
+             [("I₁₀%", row["Trigger Current A"]), ("I₁₀₀%", row["Current 100% A"])],
+             [("I₁₀%", t0)]),
+            (force, data[LOAD].to_numpy(float) / 1000,
+             [(label, row[key] / 1000) for label, key in (("F₁%", "F1 N"), ("F₆₃%", "F63 N"), ("F₉₀%", "F90 N"), ("F₁₀₀%", "F100 N"))],
+             [("t₀", t0)] + [(f"{label} = {row[key]:.2f} ms", t0 + row[key] / 1000)
+              for label, key in (("t₁%", "Dead Time t1 ms"), ("t₆₃%", "Switch Time t63 ms"), ("t₉₀%", "Switch Time t90 ms")) if np.isfinite(row[key])]),
+        ):
+            annotations = IntersectionLabels(plot, self.pg, self._font(), foreground, self._marker_pen())
+            marker_center = float(np.mean([x for _, x in markers]))
+            level_x = (t[0] + (t[-1] - t[0]) * 0.015 if marker_center > (t[0] + t[-1]) / 2
+                       else t[-1] - (t[-1] - t[0]) * 0.10)
+            for label, value in sorted(levels, key=lambda pair: -pair[1]):
+                annotations.guide(value, vertical=False)
+                # I10 is labelled at the vertical/current intersection below.
+                if plot is current and label == "I₁₀%":
+                    continue
+                annotations.label(label, level_x, value, level=True)
+            xs, ys = [], []
+            for label, x in markers:
+                if t[0] <= x <= t[-1]:
+                    y = float(np.interp(x, t, values))
+                    annotations.guide(x, vertical=True)
+                    annotations.label(label, x, y)
+                    xs.append(x)
+                    ys.append(y)
+            dots = self.pg.ScatterPlotItem(xs, ys, symbol="o", size=7, pen=self.pg.mkPen("#1565c0"), brush=self.pg.mkBrush("#1565c0"), pxMode=True)
+            dots.setZValue(10)
+            plot.addItem(dots, ignoreBounds=True)
+            self.response_annotations.append(annotations)
+        velocity.addLine(y=float(row["Target Velocity m/s"]), pen=self._marker_pen())
+        current.setXRange(float(t[0]), float(t[-1]), padding=0.04)
+        for annotations in self.response_annotations:
+            annotations.update()
+
+    def analyze_hysteresis(self):
+        previous = _base.analyze_hysteresis
+        tolerance = self.hysteresis_speed_tolerance.value() / 100 if hasattr(self, "hysteresis_speed_tolerance") else 0.03
+        _base.analyze_hysteresis = lambda dataset, config: analyze_hysteresis_v085(dataset, config, speed_tolerance=tolerance)
+        try:
+            super().analyze_hysteresis()
+        finally:
+            _base.analyze_hysteresis = previous
+        self._rebuild_hysteresis_views()
+
+    def _rebuild_hysteresis_views(self):
+        if not hasattr(self, "hysteresis_view_combo"):
+            return
+        combo = self.hysteresis_view_combo
+        previous = combo.currentData()
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self._text("全部速度：电流—阻尼力", "All speeds: current–force"), ("all", None))
+        if self.hysteresis_result is not None:
+            runs = self.hysteresis_result.runs
+            for speed in sorted(runs["Speed Group m/s"].unique()):
+                combo.addItem(self._text(f"速度 {speed:.4g} m/s：电流—阻尼力迟滞", f"Speed {speed:.4g} m/s: current–force hysteresis"), ("speed", float(speed)))
+            for current in sorted(runs["Current Label A"].unique()):
+                combo.addItem(self._text(f"电流 {current:g} A：速度—阻尼力迟滞", f"Current {current:g} A: speed–force hysteresis"), ("current", float(current)))
+        index = combo.findData(previous)
+        combo.setCurrentIndex(max(0, index))
+        combo.blockSignals(False)
+        self.refresh_hysteresis_plot()
+
+    def refresh_hysteresis_plot(self):
+        self.hysteresis_plot_area.clear()
+        if self.hysteresis_result is None or self.hysteresis_result.runs.empty:
+            return
+        runs = self.hysteresis_result.runs.copy()
+        if "Speed Group m/s" not in runs:
+            return
+        selected = self.hysteresis_view_combo.currentData() if hasattr(self, "hysteresis_view_combo") else None
+        mode, value = selected or ("all", None)
+        if mode == "speed":
+            runs = runs[runs["Speed Group m/s"] == value]
+        elif mode == "current":
+            runs = runs[runs["Current Label A"] == value]
+        plot = self.hysteresis_plot_area.addPlot(row=0, col=0)
+        self._axis_style(plot, html.escape(self._text("压缩<--阻尼力(N)-->复原", "Compression<--Damping force (N)-->Rebound")))
+        plot.setLabel("bottom", self._text("速度", "Speed") if mode == "current" else self._text("电流", "Current"), units="m/s" if mode == "current" else "A", **{"font-size": "10pt"})
+        plot.showGrid(x=True, y=True, alpha=0.15)
+        legend = self.pg.LegendItem(labelTextSize="10pt", colCount=2 if self.hysteresis_plot_area.width() < 850 else 4)
+        self.hysteresis_plot_area.addItem(legend, row=1, col=0)
+        plot.setTitle(self._text("实线：升电流　虚线：降电流", "Solid: increasing current   Dashed: decreasing current")
+                      if "Sweep Direction" in runs else self._text("按实测电流平台顺序连接", "Connected in measured plateau order"), size="10pt")
+        legend_keys = set()
+        speeds = sorted(runs["Speed Group m/s"].unique())
+        colors = ["#1565c0", "#c62828", "#00897b", "#ef6c00", "#6a1b9a", "#6d4c41", "#37474f", "#ad1457"]
+        force_column = "Force N" if "Force N" in runs else "Mean Force N"
+        group_columns = ["Direction"] if mode == "current" else ["Speed Group m/s", "Direction"]
+        if "Sweep Direction" in runs:
+            group_columns.append("Sweep Direction")
+        for index, (key, group) in enumerate(runs.groupby(group_columns, sort=True)):
+            direction = str(group["Direction"].iloc[0])
+            sweep = str(group["Sweep Direction"].iloc[0]) if "Sweep Direction" in group else "Sequence"
+            speed = float(group["Speed Group m/s"].iloc[0])
+            color_index = (0 if mode == "current" else speeds.index(speed) * 2) + (direction == "Compression")
+            color = colors[color_index % len(colors)]
+            pen = self.pg.mkPen(color, width=1.5)
+            if sweep == "Down":
+                pen.setStyle(QtCore.Qt.PenStyle.DashLine)
+            x_column = "Speed Group m/s" if mode == "current" else "Current Label A"
+            # BMW uses ordered sweep points; Audi uses acquisition sequence to
+            # retain its KFM excursions. Never connect different speed groups.
+            group = group.sort_values(x_column if mode == "current" else "Block Order")
+            y = np.abs(group[force_column].to_numpy(float)) * (1 if direction == "Rebound" else -1)
+            speed_name = "" if mode == "current" else f"{group['Speed Group m/s'].iloc[0]:.4g} m/s "
+            sweep_name = self._text({"Up": "升电流", "Down": "降电流", "Sequence": "平台顺序"}[sweep], sweep)
+            name = f"{speed_name}{self._localized_direction(direction)} {sweep_name}"
+            curve = plot.plot(group[x_column].to_numpy(float), y, pen=pen, symbol="o", symbolSize=5, symbolPen=color, symbolBrush=color, connect="finite")
+            legend_key = (speed_name, direction)
+            if legend_key not in legend_keys:
+                legend.addItem(curve, f"{speed_name}{self._localized_direction(direction)}")
+                legend_keys.add(legend_key)
+        plot.addLine(y=0, pen=self.pg.mkPen("#888888", width=0.7))
+
+    def _append_hysteresis_plot(self, workbook_path):
+        from openpyxl import load_workbook
+        from openpyxl.drawing.image import Image
+        workbook = load_workbook(workbook_path)
+        if "Hysteresis Plot" in workbook:
+            del workbook["Hysteresis Plot"]
+        sheet = workbook.create_sheet("Hysteresis Plot")
+        original = self.hysteresis_view_combo.currentIndex()
+        with TemporaryDirectory(prefix="hysteresis_v085_") as tmp:
+            try:
+                anchor_row = 1
+                for i in range(self.hysteresis_view_combo.count()):
+                    self.hysteresis_view_combo.setCurrentIndex(i)
+                    self.refresh_hysteresis_plot()
+                    QtWidgets.QApplication.processEvents()
+                    path = self._export_plot_widget_png(self.hysteresis_plot_area, Path(tmp) / f"plot_{i}.png")
+                    sheet.cell(anchor_row, 1, self.hysteresis_view_combo.itemText(i))
+                    picture = Image(str(path))
+                    picture.height *= 1000 / picture.width
+                    picture.width = 1000
+                    sheet.add_image(picture, f"A{anchor_row + 1}")
+                    anchor_row += int(np.ceil(picture.height / 20)) + 5
+                workbook.save(workbook_path)
+            finally:
+                self.hysteresis_view_combo.setCurrentIndex(original)
+                self.refresh_hysteresis_plot()
