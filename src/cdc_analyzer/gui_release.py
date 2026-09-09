@@ -50,7 +50,7 @@ def _release_help_html(language: str) -> str:
         <p><b>显示缩放：</b>使用 Qt 自动 DPI 缩放，支持 100% / 150%。工具栏自动换行；较小屏幕可滚动查看完整响应图，字体不会被二次放大或裁切。</p>
         <h2>12. 迟滞 / Hysteresis</h2>
         <ul>
-          <li><b>迟滞图：</b>首图为所有速度的电流—阻尼力图，共用纵轴“压缩&lt;--阻尼力(N)--&gt;复原”。复原绘为正值、压缩为负值。点击“加载多速度迟滞数据…”可一次选择不同速度的原始文件；程序隔离各文件的 Block ID 后按实测速度分组。图形选择器可查看单一速度的电流—阻尼力迟滞，以及单一电流的速度—阻尼力图。不同速度分组不混合求均值；默认分组容差 3%，可按试验速度点间距调整。Excel 包含全部分组图，PNG 导出当前选中图；导出时自动恢复完整纵轴范围，避免压缩方向裁切。单一方向或未配对的工况仅显示实测点，不制造迟滞值。</li>
+          <li><b>迟滞图：</b>首图为所有速度的电流—阻尼力图，共用纵轴“压缩&lt;--阻尼力(N)--&gt;复原”。复原绘为正值、压缩为负值。点击“加载多速度迟滞数据…”可一次选择不同速度的原始文件；程序隔离各文件的 Block ID 后按实测速度分组。图形选择器可查看单一速度的电流—阻尼力迟滞，以及单一电流的速度—阻尼力图。不同速度分组不混合求均值；默认分组容差 3%，可按试验速度点间距调整。Excel 包含全部分组图，PNG 导出当前选中图；导出时自动恢复完整纵轴范围，避免压缩方向裁切。菜单栏【导出 → 图片分辨率】可选 150 / 300 / 600 PPI，默认 300 PPI。单一方向或未配对的工况仅显示实测点，不制造迟滞值。</li>
           <li><b>BMW：</b>自动识别升/降电流档位，在零位移处分别计算复原与压缩载荷；按运动方向把载荷归一为正阻尼幅值后计算迟滞 N 和迟滞 %。</li>
           <li><b>Audi：</b>按 ±3% 每行程采样点的滑动平均平滑载荷，切换后的第一个循环不参与均值，至少使用 4 个后续循环；在 KFM 前/后平台计算迟滞，并输出第一循环差值。</li>
           <li>Audi 的软 / KFM / 硬电流允许手动输入；留空时根据阻尼力水平自动推断，正式客户报告前应人工确认状态映射。</li>
@@ -83,7 +83,7 @@ def _release_help_html(language: str) -> str:
         <p>Qt handles 100% / 150% display scaling. Controls wrap and the full response graph remains scrollable on smaller displays.</p>
         <h2>11. Hysteresis</h2>
         <ul>
-          <li><b>Plots:</b>The first graph overlays all speeds on a shared current–force axis: positive rebound, negative compression. Use “Load multi-speed hysteresis data…” to select multiple raw speed files at once; their Block IDs are isolated before grouping by measured speed. Select a speed for current–force hysteresis or a current for speed–force curves. Separate speed groups are never averaged together. The default 3% grouping tolerance is adjustable. Excel includes all grouped plots; PNG exports the selected view after restoring the full vertical range so compression is not clipped. Unpaired conditions retain measured points without invented hysteresis values.</li>
+          <li><b>Plots:</b>The first graph overlays all speeds on a shared current–force axis: positive rebound, negative compression. Use “Load multi-speed hysteresis data…” to select multiple raw speed files at once; their Block IDs are isolated before grouping by measured speed. Select a speed for current–force hysteresis or a current for speed–force curves. Separate speed groups are never averaged together. The default 3% grouping tolerance is adjustable. Excel includes all grouped plots; PNG exports the selected view after restoring the full vertical range so compression is not clipped. Use Export → Image Resolution to select 150 / 300 / 600 PPI; 300 PPI is the default. Unpaired conditions retain measured points without invented hysteresis values.</li>
           <li><b>BMW:</b>pairs increasing/decreasing current results at zero displacement and calculates absolute and percentage hysteresis using direction-normalized damping magnitude.</li>
           <li><b>Audi:</b>applies the ±3% samples-per-stroke moving average, excludes the first post-switch cycle, uses at least four retained cycles, compares KFM before/after and reports first-cycle delta.</li>
           <li>Soft / KFM / hard currents can be entered explicitly; automatic force-level inference must be verified before controlled reporting.</li>
