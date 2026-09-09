@@ -39,11 +39,13 @@ def _release_help_html(language: str) -> str:
         updated = base.replace("用于 CDC/电控减振器", "用于电控/半主动减振器")
         dynamic_help = """
         <h2>11. 响应时间 / Switching Time</h2>
-        <p>新增 BMW 与 Audi 两种客户评价 Profile。响应时间页使用电流、阻尼力和速度三个同步时间图。</p>
+        <p>BMW 与 Audi 用于选择客户评价 Profile，目标速度独立设置。可输入任意大于 0 的客户速度点，例如 0.1、0.3、0.6、1.0 m/s；多个速度用逗号分隔。响应时间页使用电流、阻尼力和速度三个同步时间图。</p>
         <ul>
-          <li><b>Audi：</b>按实测电流跳变 10% 定义 t0，计算 1% / 63% / 90% 力响应、死区时间和力梯度；并检查 4 kHz 采样要求。</li>
-          <li><b>BMW：</b>支持软→硬、软→中、硬→中、硬→软设定值跳变，输出 t63 与 t90。提供可见的电流触发比例设置，因为当前导入的 BMW 摘录没有给出该触发百分比的规范定义。</li>
-          <li>若未输入客户 t90 限值，只报告测量值，不自动判定 PASS/FAIL。</li>
+          <li><b>计时基准：</b>I₁₀% 是实测电流从起始平台到终止平台变化 10% 时的交点。t₁%、t₆₃%、t₉₀% 均为相应力阈值交点时刻减去 I₁₀% 电流交点时刻，单位 ms。</li>
+          <li><b>Audi：</b>计算 F₁% / F₆₃% / F₉₀% 力响应、死区时间和力梯度，并检查 4 kHz 采样要求。</li>
+          <li><b>BMW：</b>支持软→硬、软→中、硬→中、硬→软设定值跳变，输出 t₆₃% 与 t₉₀%。提供可见的电流触发比例设置，因为当前导入的 BMW 摘录没有给出该触发百分比的规范定义。</li>
+          <li><b>图形标注：</b>I/F 水平参考文字位于虚线上方；响应时间文字与垂直虚线错开；显示范围覆盖目标速度终值窗口，使 F₁%、F₆₃%、F₉₀%、F₁₀₀% 参考线均与实测曲线相交。</li>
+          <li>若未输入客户 t₉₀% 限值，只报告测量值，不自动判定 PASS/FAIL。</li>
         </ul>
         <h2>12. 迟滞 / Hysteresis</h2>
         <ul>
@@ -68,11 +70,13 @@ def _release_help_html(language: str) -> str:
         updated = base.replace("CDC/electronic damper", "electronically controlled / semi-active damper")
         dynamic_help = """
         <h2>10. Response Time / Switching Time</h2>
-        <p>BMW and Audi OEM profiles are available. The page shows synchronized current, damping-force and velocity traces.</p>
+        <p>BMW and Audi select the OEM evaluation profile; target speeds are configured independently. Any positive customer speeds may be entered, for example 0.1, 0.3, 0.6 and 1.0 m/s. The page shows synchronized current, damping-force and velocity traces.</p>
         <ul>
-          <li><b>Audi:</b>t0 is based on the measured-current 10% point; 1% / 63% / 90% force response, dead time and force gradients are reported; 4 kHz sampling is checked.</li>
-          <li><b>BMW:</b>supports soft→hard, soft→medium, hard→medium and hard→soft setpoint changes and reports t63 / t90. The current trigger fraction remains visible because the supplied BMW excerpt does not define that percentage.</li>
-          <li>No PASS/FAIL is assigned without an entered project t90 limit.</li>
+          <li><b>Timing reference:</b>I₁₀% is the measured-current crossing at 10% of the change from the initial to final plateau. t₁%, t₆₃% and t₉₀% equal their force-threshold crossing time minus the I₁₀% current crossing time, in ms.</li>
+          <li><b>Audi:</b>F₁% / F₆₃% / F₉₀% response, dead time and force gradients are reported; 4 kHz sampling is checked.</li>
+          <li><b>BMW:</b>supports soft→hard, soft→medium, hard→medium and hard→soft setpoint changes and reports t₆₃% / t₉₀%. The current trigger fraction remains visible because the supplied BMW excerpt does not define that percentage.</li>
+          <li><b>Plot labels:</b>I/F level text is above horizontal dashed lines; response-time text is offset from vertical markers; the displayed data covers the target-speed endpoint window so every F-level reference intersects the measured trace.</li>
+          <li>No PASS/FAIL is assigned without an entered project t₉₀% limit.</li>
         </ul>
         <h2>11. Hysteresis</h2>
         <ul>

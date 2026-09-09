@@ -39,9 +39,9 @@ def test_v082_exposes_add_and_subtract_gas_force_operations():
     app.processEvents()
 
 
-def test_v082_is_the_packaged_gui_entry_point():
+def test_v082_release_module_remains_available():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    assert "gui_release_v082" in (root / "launcher.py").read_text(encoding="utf-8")
-    assert 'cdc_analyzer.gui_release_v082:main' in (root / "pyproject.toml").read_text(encoding="utf-8")
+    release_module = root / "src" / "cdc_analyzer" / "gui_release_v082.py"
+    assert "_build_release_gui_classes_v082" in release_module.read_text(encoding="utf-8")

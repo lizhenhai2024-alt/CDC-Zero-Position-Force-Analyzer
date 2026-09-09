@@ -518,7 +518,7 @@ class DynamicPagesController:
         self.response_standard_label.setText(self._text("规范", "Standard"))
         self.response_trigger_label.setText(self._text("电流触发", "Current trigger"))
         self.response_end_label.setText(self._text("终值平均", "End average"))
-        self.response_limit_label.setText(self._text("t90限值", "t90 limit"))
+        self.response_limit_label.setText(self._text("t₉₀%限值", "t₉₀% limit"))
         self.response_analyze_button.setText(self._text("分析响应", "Analyze Response"))
         self.response_export_button.setText(self._text("导出 Excel", "Export Excel"))
         self.response_event_label.setText(self._text("显示事件", "Display event"))

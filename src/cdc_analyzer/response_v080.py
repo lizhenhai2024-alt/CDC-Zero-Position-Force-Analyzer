@@ -29,7 +29,7 @@ def parse_target_speeds(value: str | Iterable[float]) -> tuple[float, ...]:
         try:
             raw = [float(token) for token in tokens]
         except ValueError as exc:
-            raise ValueError("目标速度格式无效；多个速度请用逗号分隔，例如 0.1, 0.3, 0.6, 10。") from exc
+            raise ValueError("目标速度格式无效；多个速度请用逗号分隔，例如 0.1, 0.3, 0.6, 1.0。") from exc
     else:
         raw = [float(item) for item in value]
 

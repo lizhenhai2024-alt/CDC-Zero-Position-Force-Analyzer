@@ -15,7 +15,7 @@ class DynamicPagesController(_V079DynamicPagesController):
 
     OEM profile and test speed are deliberately separated. BMW/Audi populate
     convenient default speeds, but the operator may enter any positive customer
-    speed list (for example 0.1, 0.3, 0.6, 10 m/s).
+    speed list (for example 0.1, 0.3, 0.6, 1.0 m/s).
     """
 
     def _build_response_page(self):
@@ -60,8 +60,8 @@ class DynamicPagesController(_V079DynamicPagesController):
         )
         self.response_target_speeds.setPlaceholderText(
             self._text(
-                "例如 0.1, 0.3, 0.6, 10",
-                "e.g. 0.1, 0.3, 0.6, 10",
+                "例如 0.1, 0.3, 0.6, 1.0",
+                "e.g. 0.1, 0.3, 0.6, 1.0",
             )
         )
         self.response_target_speeds.setToolTip(
