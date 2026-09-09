@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import dynamic_gui as _base
 from .dynamic_analysis import CURRENT, LOAD, TIME, VELOCITY
-from .dynamic_gui_v083 import DynamicPagesController as _BaseController
+from .dynamic_gui_v084 import DynamicPagesController as _BaseController
 from .hysteresis_v085 import analyze_hysteresis_v085
 from .plot_layout_v085 import FlowLayout, IntersectionLabels
 
