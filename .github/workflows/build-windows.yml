@@ -31,9 +31,24 @@ jobs:
       - name: Build executable
         run: |
           pyinstaller --noconfirm --clean --windowed --onefile --name Damper_Test_Data_Analyzer --icon "src/cdc_analyzer/assets/damper_test_data_analyzer.png" --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters --add-data "src/cdc_analyzer/assets;cdc_analyzer/assets" launcher.py
-      - name: Upload executable
+      - name: Generate SHA256 and provenance
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/Damper_Test_Data_Analyzer.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Damper_Test_Data_Analyzer.exe" | Out-File -Encoding ascii dist/SHA256SUMS.txt
+          "commit=${{ github.sha }}" | Out-File -Encoding ascii dist/BUILD_PROVENANCE.txt
+          "ref=${{ github.ref }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "python=3.12" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "run_id=${{ github.run_id }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "golden_evidence=golden/evidence_v09.json" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+      - name: Upload release-grade build artifact
         uses: actions/upload-artifact@v4
         with:
           name: Damper_Test_Data_Analyzer_Windows
-          path: dist/Damper_Test_Data_Analyzer.exe
+          path: |
+            dist/Damper_Test_Data_Analyzer.exe
+            dist/SHA256SUMS.txt
+            dist/BUILD_PROVENANCE.txt
+            golden/manifest.json
+            golden/evidence_v09.json
           if-no-files-found: error
