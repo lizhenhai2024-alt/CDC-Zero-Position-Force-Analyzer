@@ -52,15 +52,31 @@ def test_custom_customer_target_speed_is_not_locked_to_oem_profile():
     result = analyze_response_time_v080(
         _response_dataset(0.300),
         ResponseConfig(standard=ResponseStandard.BMW),
-        target_speeds_mps=(0.1, 0.3, 0.6, 10.0),
+        target_speeds_mps=(0.1, 0.3, 0.6, 1.0),
     )
     assert not result.events.empty
     assert float(result.events.iloc[0]["Target Velocity m/s"]) == pytest.approx(0.3)
-    assert result.settings["Target Speeds m/s"] == "0.1, 0.3, 0.6, 10"
+    assert result.settings["Target Speeds m/s"] == "0.1, 0.3, 0.6, 1"
+
+    row = result.events.iloc[0]
+    i10_time = float(row["I10 Crossing Time s"])
+    assert float(row["Dead Time t1 ms"]) == pytest.approx(
+        (float(row["F1 Crossing Time s"]) - i10_time) * 1000.0
+    )
+    assert float(row["Switch Time t63 ms"]) == pytest.approx(
+        (float(row["F63 Crossing Time s"]) - i10_time) * 1000.0
+    )
+    assert float(row["Switch Time t90 ms"]) == pytest.approx(
+        (float(row["F90 Crossing Time s"]) - i10_time) * 1000.0
+    )
+    assert row["Timing Reference"] == "I10% current crossing"
+    assert result.settings["Timing Reference"] == (
+        "Force-threshold crossing time minus I10% current crossing time"
+    )
 
 
 def test_target_speed_parser_accepts_customer_lists():
-    assert parse_target_speeds("0.1, 0.3; 0.6 10") == pytest.approx((0.1, 0.3, 0.6, 10.0))
+    assert parse_target_speeds("0.1, 0.3; 0.6 1.0") == pytest.approx((0.1, 0.3, 0.6, 1.0))
     with pytest.raises(ValueError):
         parse_target_speeds("0.3, 0")
 
@@ -78,8 +94,8 @@ def test_v080_gui_exposes_editable_target_speed_list():
 
     assert pages.response_target_speeds.isVisibleTo(pages.response_page)
     assert pages.response_target_speeds.text() == "0.131, 0.524, 1.048"
-    pages.response_target_speeds.setText("0.1, 0.3, 0.6, 10")
-    assert parse_target_speeds(pages.response_target_speeds.text()) == pytest.approx((0.1, 0.3, 0.6, 10.0))
+    pages.response_target_speeds.setText("0.1, 0.3, 0.6, 1.0")
+    assert parse_target_speeds(pages.response_target_speeds.text()) == pytest.approx((0.1, 0.3, 0.6, 1.0))
 
     window.close()
     app.processEvents()
