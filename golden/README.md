@@ -1,32 +1,73 @@
-# Golden DAT Regression
+# Golden regression evidence
 
-This directory defines the contract for real-data regression used by V0.9 and V1.0.
+V0.9 uses **real bench data as the release oracle without publishing the raw bench files**.
 
-## Required case metadata
+The three required domains are:
 
-Each Golden case must define:
+1. `audi_center_window` — Audi last complete cycle, center position, total-stroke 10% evaluation window, rebound maximum and compression minimum.
+2. `bmw_hysteresis` — BMW zero-position force at paired rising/falling current levels and hysteresis percentage.
+3. `bmw_response` — BMW current-step response at the configured target speed, with timing referenced to the I10% current crossing.
 
-- stable case ID;
-- original DAT filename;
-- SHA-256 of the exact input bytes;
-- customer/profile (for example BMW or Audi) when applicable;
-- data-column mapping and units;
-- evaluation method and window;
-- gas-force correction mode and value if used;
-- expected rebound/compression outputs;
-- expected response metrics when applicable;
-- numeric tolerance for each frozen output;
-- provenance note explaining where the file came from and why it is representative.
+## Public repository contents
 
-## Rules
+`manifest.json` contains only:
 
-1. Real DAT files are the authority for Golden regression.
-2. Synthetic test fixtures remain useful for edge cases but are not Golden evidence.
-3. Expected results are never updated automatically when code changes.
-4. A Golden result change requires an engineering review note explaining the physical or algorithmic reason.
-5. Confidential input files may be stored in a private artifact store instead of the public repository. In that case the manifest still records SHA-256 and expected outputs so the exact source can be verified locally/CI.
-6. Rebound force > 0 and compression force < 0 are frozen sign conventions.
+- a non-identifying Golden case ID,
+- SHA-256 and byte size of the private source DAT,
+- approved engineering expected outputs,
+- numeric comparison tolerances,
+- the frozen algorithm file list.
 
-## Status
+`evidence_v09.json` contains only:
 
-The V0.9 framework is active, but no raw real DAT file has yet been admitted into the public Golden set. Do not mark the Golden gate PASS until at least one representative real DAT case is registered and executed in CI or in the approved private regression job.
+- PASS/FAIL evidence,
+- source SHA-256/size confirmation,
+- expected-output digests,
+- Git blob SHAs of the frozen algorithm files,
+- an aggregate algorithm fingerprint,
+- compact measured evidence.
+
+**Raw DAT waveforms are intentionally not committed to this public repository.**
+
+## Public CI gate
+
+Run:
+
+```bash
+python tools/verify_golden_evidence.py
+```
+
+The command fails when any of the following is true:
+
+- one of the three required Golden domains is missing;
+- a Golden case is not PASS;
+- source hash/size evidence differs from the manifest;
+- approved expected outputs were edited without refreshing evidence;
+- any frozen algorithm file changed since the private Golden run;
+- the aggregate algorithm fingerprint is stale.
+
+The same gate is executed by the normal Windows test workflow, Windows EXE build workflow, and the Windows release workflow.
+
+## Refreshing evidence after an algorithm change
+
+Keep the real DAT files in private/local storage and run from a checked-out repository:
+
+```bash
+python tools/run_golden_regression.py ^
+  --audi "D:\private\audi_center.dat" ^
+  --bmw-hysteresis "D:\private\bmw_hysteresis.dat" ^
+  --bmw-response "D:\private\bmw_response_1048.dat"
+```
+
+The runner first verifies each private file's SHA-256 and byte size, then executes the current production algorithms and compares the measured results with `manifest.json`. Only a complete 3/3 PASS writes refreshed `evidence_v09.json`.
+
+After review, commit the refreshed evidence together with the intended algorithm change. Do not weaken tolerances merely to make a changed algorithm pass; an expected-output change is an engineering baseline change and must be reviewed as such.
+
+## V1.0 release rule
+
+Do not tag V1.0 unless:
+
+- `python tools/verify_golden_evidence.py` reports PASS,
+- the full regression suite passes,
+- the Windows executable build succeeds,
+- PR/release review confirms that raw bench data remains private.

@@ -21,6 +21,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,gui]" pyinstaller pillow
+      - name: Verify private Golden evidence
+        run: python tools/verify_golden_evidence.py
       - name: Run regression tests
         env:
           QT_QPA_PLATFORM: offscreen
@@ -39,6 +41,7 @@ jobs:
           "ref=${{ github.ref }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
           "python=3.12" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
           "run_id=${{ github.run_id }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "golden_evidence=golden/evidence_v09.json" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -47,11 +50,13 @@ jobs:
             dist/Damper_Test_Data_Analyzer.exe
             dist/SHA256SUMS.txt
             dist/BUILD_PROVENANCE.txt
+            golden/manifest.json
+            golden/evidence_v09.json
           if-no-files-found: error
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          gh release create "${{ github.ref_name }}" dist/Damper_Test_Data_Analyzer.exe dist/SHA256SUMS.txt dist/BUILD_PROVENANCE.txt --title "Damper Test Data Analyzer ${{ github.ref_name }}" --generate-notes
+          gh release create "${{ github.ref_name }}" dist/Damper_Test_Data_Analyzer.exe dist/SHA256SUMS.txt dist/BUILD_PROVENANCE.txt golden/manifest.json golden/evidence_v09.json --title "Damper Test Data Analyzer ${{ github.ref_name }}" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
