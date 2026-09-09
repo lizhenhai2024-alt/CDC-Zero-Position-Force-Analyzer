@@ -1,0 +1,57 @@
+name: Release Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,gui]" pyinstaller pillow
+      - name: Run regression tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+      - name: Render application icon
+        run: python tools/render_app_icon.py
+      - name: Build executable
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onefile --name Damper_Test_Data_Analyzer --icon "src/cdc_analyzer/assets/damper_test_data_analyzer.png" --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters --add-data "src/cdc_analyzer/assets;cdc_analyzer/assets" launcher.py
+      - name: Generate SHA256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/Damper_Test_Data_Analyzer.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Damper_Test_Data_Analyzer.exe" | Out-File -Encoding ascii dist/SHA256SUMS.txt
+          "commit=${{ github.sha }}" | Out-File -Encoding ascii dist/BUILD_PROVENANCE.txt
+          "ref=${{ github.ref }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "python=3.12" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+          "run_id=${{ github.run_id }}" | Out-File -Encoding ascii -Append dist/BUILD_PROVENANCE.txt
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Damper_Test_Data_Analyzer_Windows
+          path: |
+            dist/Damper_Test_Data_Analyzer.exe
+            dist/SHA256SUMS.txt
+            dist/BUILD_PROVENANCE.txt
+          if-no-files-found: error
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" dist/Damper_Test_Data_Analyzer.exe dist/SHA256SUMS.txt dist/BUILD_PROVENANCE.txt --title "Damper Test Data Analyzer ${{ github.ref_name }}" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

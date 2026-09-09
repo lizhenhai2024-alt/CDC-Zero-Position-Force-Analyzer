@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "freeze_version": "V0.9",
+  "canonical_baseline_commit": "cbfb4c24db99b86bee1a2f2c8ac603a095f08914",
+  "historical_checkpoint_commit": "888a15df9a8206b922e53edc8a4ba457d462c93c",
+  "sign_convention": {
+    "rebound": "> 0 N",
+    "compression": "< 0 N"
+  },
+  "cases": []
+}
