@@ -436,12 +436,20 @@ def _build_gui_classes():
 
         def _populate_plot_controls(self):
             channels = available_plot_channels(self.result.processed)
+            dataset_changed = getattr(self, "_plot_controls_dataset", None) is not self.dataset
+            imported_channels = [
+                column
+                for column in self.dataset.data.columns
+                if column in channels and column not in {"Block ID", "Source Row"}
+            ] if self.dataset is not None else []
+            default_x = imported_channels[0] if imported_channels else (channels[0] if channels else None)
+            default_y = set(imported_channels[1:])
             old_x = self.x_axis.currentData()
             self.x_axis.blockSignals(True)
             self.x_axis.clear()
             for channel in channels:
                 self.x_axis.addItem(display_channel(self.language, channel), channel)
-            target_x = old_x if old_x in channels else "Axial Displacement"
+            target_x = default_x if dataset_changed else (old_x if old_x in channels else default_x)
             index = self.x_axis.findData(target_x)
             self.x_axis.setCurrentIndex(index if index >= 0 else 0)
             self.x_axis.blockSignals(False)
@@ -453,13 +461,14 @@ def _build_gui_classes():
             }
             self.y_axis.blockSignals(True)
             self.y_axis.clear()
-            selected_y = old_y or {"Axial Load"}
+            selected_y = default_y if dataset_changed else old_y
             for channel in channels:
                 item = QtWidgets.QListWidgetItem(display_channel(self.language, channel))
                 item.setData(QtCore.Qt.ItemDataRole.UserRole, channel)
                 self.y_axis.addItem(item)
                 item.setSelected(channel in selected_y)
             self.y_axis.blockSignals(False)
+            self._plot_controls_dataset = self.dataset
 
             old_current = self.current_filter.currentData()
             self.current_filter.blockSignals(True)

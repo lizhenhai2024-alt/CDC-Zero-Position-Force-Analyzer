@@ -58,11 +58,32 @@ def test_main_window_constructs_analyzes_and_switches_language_offscreen():
     assert window.quality_table.model().rowCount() == 1
     # A single isolated current run has no sweep direction and is correctly excluded.
     assert window.sweep_table.model().rowCount() == 0
+    assert window.x_axis.currentData() == "Running Time"
+    assert window.x_axis.currentText() == "运行时间"
+    selected = {
+        item.data(QtCore.Qt.ItemDataRole.UserRole): item.text()
+        for item in window.y_axis.selectedItems()
+    }
+    assert selected == {
+        "Axial Displacement": "轴向位移",
+        "Axial Load": "轴向载荷",
+        "CDC 1 Current FB_1": "CDC 1 反馈电流",
+    }
+    window.x_axis.setCurrentIndex(window.x_axis.findData("Axial Displacement"))
+    for index in range(window.y_axis.count()):
+        item = window.y_axis.item(index)
+        item.setSelected(item.data(QtCore.Qt.ItemDataRole.UserRole) == "Axial Load")
+    window.analyze()
     assert window.x_axis.currentData() == "Axial Displacement"
-    assert window.x_axis.currentText() == "轴向位移"
-    selected = window.y_axis.selectedItems()[0]
-    assert selected.data(QtCore.Qt.ItemDataRole.UserRole) == "Axial Load"
-    assert selected.text() == "轴向载荷"
+    assert [item.data(QtCore.Qt.ItemDataRole.UserRole) for item in window.y_axis.selectedItems()] == ["Axial Load"]
+
+    # A newly imported dataset reapplies the first-column/all-other-columns defaults.
+    window.dataset = _dataset()
+    window.analyze()
+    assert window.x_axis.currentData() == "Running Time"
+    assert {item.data(QtCore.Qt.ItemDataRole.UserRole) for item in window.y_axis.selectedItems()} == {
+        "Axial Displacement", "Axial Load", "CDC 1 Current FB_1"
+    }
     assert window.summary_table.model().headerData(
         0, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole
     ) == "电流档位 A"
@@ -72,8 +93,8 @@ def test_main_window_constructs_analyzes_and_switches_language_offscreen():
     app.processEvents()
     assert window.language == "en_US"
     assert window.windowTitle() == "CDC Zero Position Force Analyzer v0.5"
-    assert window.x_axis.currentData() == "Axial Displacement"
-    assert window.x_axis.currentText() == "Axial Displacement"
+    assert window.x_axis.currentData() == "Running Time"
+    assert window.x_axis.currentText() == "Running Time"
     assert window.tabs.tabText(window.tabs.indexOf(window.sweep_table)) == "Sweep Comparison"
     assert window.summary_table.model().headerData(
         0, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole

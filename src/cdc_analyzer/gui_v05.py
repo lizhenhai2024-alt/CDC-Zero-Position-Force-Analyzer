@@ -133,7 +133,7 @@ def _help_html(language: str) -> str:
           <tr><td>鼠标滚轮</td><td>PyQtGraph 原生滚轮缩放仍可使用。</td></tr>
           <tr><td>背景</td><td>白色、黑色、浅灰、深灰或任意自定义颜色；PNG 导出沿用当前背景。</td></tr>
         </table>
-        <p>X/Y 轴字段可自由选择；不同量纲的多个 Y 字段自动采用上下分图并共享 X 轴。</p>
+        <p>导入新数据后，X 轴默认选择第 1 个可绘制的原始数据列，Y 轴默认选择其余原始数据列。重新分析同一文件时保留手动选择；不同量纲的多个 Y 字段自动采用上下分图并共享 X 轴。</p>
 
         <h2>6. 数据质量页面</h2>
         <p>按原始 Acquisition Block 输出采样点数、采样频率、时间间隔、位移范围、载荷范围、电流中位值与标准差等。结构性错误会阻止工程评价，例如：</p>
@@ -191,7 +191,7 @@ def _help_html(language: str) -> str:
     <h2>4. Gas rebound-force correction</h2>
     <p>Select either <code>Corrected Load = Measured Load - Gas Force</code> or <code>Corrected Load = Measured Load + Gas Force</code>. Pressure calculation uses <code>Fg = Pg × π × d² / 4</code>, with gauge pressure in MPa and rod diameter in mm.</p>
     <h2>5. Plot tools</h2>
-    <p>Zoom In, Zoom Out, Box Zoom, Pan and Reset are available above the plot. Mouse-wheel zoom remains available. Background can be White, Black, Light Gray, Dark Gray or a custom color, and PNG export uses the active plot background.</p>
+    <p>After a new data file is imported, the first plottable source column is selected as X and all remaining source columns are selected as Y. Reanalyzing the same file preserves manual selections. Zoom In, Zoom Out, Box Zoom, Pan and Reset are available above the plot. Mouse-wheel zoom remains available. Background can be White, Black, Light Gray, Dark Gray or a custom color, and PNG export uses the active plot background.</p>
     <h2>6. Data quality</h2>
     <p>Reports sample count/rate, time intervals, displacement/load ranges, current median/std and structural problems by acquisition block. Structural Invalid input blocks engineering analysis. Sampling rate is reported but not judged against an unstated customer limit.</p>
     <h2>7. Sweep comparison</h2>
