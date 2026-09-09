@@ -75,6 +75,26 @@ def test_custom_customer_target_speed_is_not_locked_to_oem_profile():
     )
 
 
+@pytest.mark.parametrize("force_scale", (1.0, -1.0))
+def test_force_thresholds_keep_f90_before_f100_in_response_direction(force_scale):
+    """F90 stays between F63 and the F100 endpoint for either force sign."""
+    dataset = _response_dataset(0.300)
+    dataset.data[LOAD] *= force_scale
+    result = analyze_response_time_v080(
+        dataset,
+        ResponseConfig(standard=ResponseStandard.BMW),
+        target_speeds_mps=(0.3,),
+    )
+    row = result.events.iloc[0]
+    direction = float(row["Delta F N"])
+    f1, f63, f90, f100 = (float(row[key]) for key in ("F1 N", "F63 N", "F90 N", "F100 N"))
+
+    assert (f63 - f1) * direction > 0
+    assert (f90 - f63) * direction > 0
+    assert (f100 - f90) * direction > 0
+    assert abs(f100 - f90) < abs(f100 - f63)
+
+
 def test_target_speed_parser_accepts_customer_lists():
     assert parse_target_speeds("0.1, 0.3; 0.6 1.0") == pytest.approx((0.1, 0.3, 0.6, 1.0))
     with pytest.raises(ValueError):
