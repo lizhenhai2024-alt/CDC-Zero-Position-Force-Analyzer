@@ -11,11 +11,16 @@ from cdc_analyzer.dynamic_analysis import (
     DISP,
     LOAD,
     TIME,
+    VELOCITY,
     ResponseConfig,
     ResponseStandard,
 )
 from cdc_analyzer.parser import DataSet
-from cdc_analyzer.response_v074 import analyze_response_time_v074
+from cdc_analyzer.response_v074 import (
+    _event_boundaries,
+    _target_speed_component,
+    analyze_response_time_v074,
+)
 
 
 def _dataset(frame: pd.DataFrame, name: str = "synthetic.dat") -> DataSet:
@@ -70,6 +75,44 @@ def test_target_speed_filter_excludes_off_target_current_step():
     )
     assert result.events["Direction"].tolist() == ["Rebound", "Compression"]
     assert (result.events["Switch Time t90 ms"] > 0).all()
+
+
+def test_target_speed_window_bridges_short_velocity_feedback_ripple():
+    t = np.arange(0.0, 0.030, 1.0 / 4096.0)
+    velocity = np.full_like(t, 0.131)
+    velocity[(t >= 0.012) & (t <= 0.016)] = 0.148
+    segment = pd.DataFrame({TIME: t, VELOCITY: velocity})
+
+    component = _target_speed_component(
+        segment,
+        t0=0.010,
+        signed_target_mps=0.131,
+        tolerance_mps=0.0131,
+    )
+
+    assert component is not None
+    left, right = component
+    assert t[left] <= 0.001
+    assert t[right] >= 0.028
+
+    velocity[(t >= 0.012) & (t <= 0.024)] = 0.148
+    sustained_segment = pd.DataFrame({TIME: t, VELOCITY: velocity})
+    sustained_component = _target_speed_component(
+        sustained_segment,
+        t0=0.010,
+        signed_target_mps=0.131,
+        tolerance_mps=0.0131,
+    )
+    assert sustained_component is not None
+    assert t[sustained_component[1]] < 0.014
+
+
+def test_edge_event_boundaries_extrapolate_neighbor_half_spacing():
+    assert _event_boundaries(1000, [200, 400, 600]) == [
+        (100, 300),
+        (300, 500),
+        (500, 700),
+    ]
 
 
 def _full_bmw_sequence(fs: float = 4096.0) -> tuple[pd.DataFrame, list[tuple[str, str, str]]]:

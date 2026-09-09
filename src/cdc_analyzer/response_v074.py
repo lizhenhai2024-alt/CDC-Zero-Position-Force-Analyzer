@@ -22,6 +22,7 @@ AUDI_TARGET_SPEEDS_MPS = (0.052, 0.131, 0.262, 0.524)
 DEFAULT_TARGET_SPEED_TOLERANCE = 0.10
 LOW_SPEED_TOLERANCE_FLOOR_MPS = 0.002
 MIN_POST_TARGET_WINDOW_S = 0.004
+MAX_TARGET_SPEED_GAP_S = 0.008
 
 
 def _sample_rate_hz(frame: pd.DataFrame) -> float:
@@ -125,8 +126,22 @@ def _event_boundaries(length: int, events: list[int]) -> list[tuple[int, int]]:
         return []
     bounds: list[tuple[int, int]] = []
     for i, event_idx in enumerate(events):
-        start = 0 if i == 0 else (events[i - 1] + event_idx) // 2
-        end = length - 1 if i == len(events) - 1 else (event_idx + events[i + 1]) // 2
+        if i == 0:
+            start = (
+                max(0, event_idx - (events[i + 1] - event_idx) // 2)
+                if len(events) > 1
+                else 0
+            )
+        else:
+            start = (events[i - 1] + event_idx) // 2
+        if i == len(events) - 1:
+            end = (
+                min(length - 1, event_idx + (event_idx - events[i - 1]) // 2)
+                if len(events) > 1
+                else length - 1
+            )
+        else:
+            end = (event_idx + events[i + 1]) // 2
         bounds.append((max(0, start), min(length - 1, end)))
     return bounds
 
@@ -174,6 +189,29 @@ def _target_speed_component(
     if len(mask) >= 5:
         ratio = pd.Series(mask.astype(float)).rolling(5, center=True, min_periods=1).mean().to_numpy()
         mask = mask | (ratio >= 0.60)
+
+    # MTS displacement feedback can produce a short velocity ripple even while
+    # the rig remains in its commanded constant-speed stroke.  Do not let one
+    # such ripple split an otherwise continuous evaluation window.  A gap is
+    # bridged only when valid target-speed samples bound it on both sides, so a
+    # real stroke reversal or sustained speed departure remains excluded.
+    invalid = np.flatnonzero(~mask)
+    cursor = 0
+    while cursor < len(invalid):
+        run_end = cursor
+        while run_end + 1 < len(invalid) and invalid[run_end + 1] == invalid[run_end] + 1:
+            run_end += 1
+        left = int(invalid[cursor]) - 1
+        right = int(invalid[run_end]) + 1
+        if (
+            left >= 0
+            and right < len(mask)
+            and mask[left]
+            and mask[right]
+            and float(t[right] - t[left]) <= MAX_TARGET_SPEED_GAP_S
+        ):
+            mask[left + 1 : right] = True
+        cursor = run_end + 1
 
     center = int(np.argmin(np.abs(t - t0)))
     if not mask[center]:
