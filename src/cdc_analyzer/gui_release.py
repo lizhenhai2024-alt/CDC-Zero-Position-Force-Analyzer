@@ -4,6 +4,7 @@ import html
 import sys
 from importlib.resources import files
 
+from .dynamic_gui import DynamicPagesController
 from .gui import _qt_imports
 from .gui_v05 import _build_gui_classes_v05, _help_html, _t
 from .i18n import tr
@@ -36,6 +37,22 @@ def _release_help_html(language: str) -> str:
         </div>
         """
         updated = base.replace("用于 CDC/电控减振器", "用于电控/半主动减振器")
+        dynamic_help = """
+        <h2>11. 响应时间 / Switching Time</h2>
+        <p>新增 BMW 与 Audi 两种客户评价 Profile。响应时间页使用电流、阻尼力和速度三个同步时间图。</p>
+        <ul>
+          <li><b>Audi：</b>按实测电流跳变 10% 定义 t0，计算 1% / 63% / 90% 力响应、死区时间和力梯度；并检查 4 kHz 采样要求。</li>
+          <li><b>BMW：</b>支持软→硬、软→中、硬→中、硬→软设定值跳变，输出 t63 与 t90。提供可见的电流触发比例设置，因为当前导入的 BMW 摘录没有给出该触发百分比的规范定义。</li>
+          <li>若未输入客户 t90 限值，只报告测量值，不自动判定 PASS/FAIL。</li>
+        </ul>
+        <h2>12. 迟滞 / Hysteresis</h2>
+        <ul>
+          <li><b>BMW：</b>自动识别升/降电流档位，在零位移处分别计算复原与压缩载荷；按运动方向把载荷归一为正阻尼幅值后计算迟滞 N 和迟滞 %。</li>
+          <li><b>Audi：</b>按 ±3% 每行程采样点的滑动平均平滑载荷，切换后的第一个循环不参与均值，至少使用 4 个后续循环；在 KFM 前/后平台计算迟滞，并输出第一循环差值。</li>
+          <li>Audi 的软 / KFM / 硬电流允许手动输入；留空时根据阻尼力水平自动推断，正式客户报告前应人工确认状态映射。</li>
+        </ul>
+        <div class="warn">客户项目 Lastenheft / 受控试验规范中的限值始终优先。本软件不会对未提供的客户限值进行猜测。</div>
+        """
     else:
         old_title = "CDC Zero Position Force Analyzer — Professional Help"
         new_title = f"{PRODUCT_NAME} — Professional Help"
@@ -49,9 +66,26 @@ def _release_help_html(language: str) -> str:
         </div>
         """
         updated = base.replace("CDC/electronic damper", "electronically controlled / semi-active damper")
+        dynamic_help = """
+        <h2>10. Response Time / Switching Time</h2>
+        <p>BMW and Audi OEM profiles are available. The page shows synchronized current, damping-force and velocity traces.</p>
+        <ul>
+          <li><b>Audi:</b>t0 is based on the measured-current 10% point; 1% / 63% / 90% force response, dead time and force gradients are reported; 4 kHz sampling is checked.</li>
+          <li><b>BMW:</b>supports soft→hard, soft→medium, hard→medium and hard→soft setpoint changes and reports t63 / t90. The current trigger fraction remains visible because the supplied BMW excerpt does not define that percentage.</li>
+          <li>No PASS/FAIL is assigned without an entered project t90 limit.</li>
+        </ul>
+        <h2>11. Hysteresis</h2>
+        <ul>
+          <li><b>BMW:</b>pairs increasing/decreasing current results at zero displacement and calculates absolute and percentage hysteresis using direction-normalized damping magnitude.</li>
+          <li><b>Audi:</b>applies the ±3% samples-per-stroke moving average, excludes the first post-switch cycle, uses at least four retained cycles, compares KFM before/after and reports first-cycle delta.</li>
+          <li>Soft / KFM / hard currents can be entered explicitly; automatic force-level inference must be verified before controlled reporting.</li>
+        </ul>
+        <div class="warn">Controlled project requirements remain authoritative. The software does not invent missing customer limits.</div>
+        """
     updated = updated.replace(old_title, new_title)
     marker = f"<h1>{new_title}</h1>"
-    return updated.replace(marker, marker + release_box, 1)
+    updated = updated.replace(marker, marker + release_box, 1)
+    return updated.replace("</body></html>", dynamic_help + "</body></html>", 1)
 
 
 def _find_app_icon():
@@ -71,7 +105,7 @@ def _find_app_icon():
 
 
 def _build_release_gui_classes():
-    QtCore, QtWidgets, _ = _qt_imports()
+    QtCore, QtWidgets, pg = _qt_imports()
     from PySide6 import QtGui
 
     BaseMainWindow = _build_gui_classes_v05()
@@ -81,6 +115,7 @@ def _build_release_gui_classes():
             self.release_language_toolbar = None
             self.release_language_label = None
             self._initial_view_ranges: list[tuple[tuple[float, float], tuple[float, float]]] = []
+            self.dynamic_pages = None
             super().__init__()
             self._setup_language_toolbar()
             self._configure_release_defaults()
@@ -88,6 +123,7 @@ def _build_release_gui_classes():
             self._style_plot_selectors()
             self._apply_release_identity()
             self._capture_initial_view_ranges()
+            self.dynamic_pages = DynamicPagesController(self, QtCore, QtWidgets, pg)
 
         def _table(self):
             table = super()._table()
@@ -230,6 +266,14 @@ def _build_release_gui_classes():
                 self.release_language_label.setText("界面语言" if self.language == "zh_CN" else "UI Language")
             if hasattr(self, "plot_form"):
                 self._ensure_form_labels()
+            if getattr(self, "dynamic_pages", None) is not None:
+                self.dynamic_pages.apply_language(self.language)
+
+        def _apply_plot_background(self, refresh: bool = False):
+            super()._apply_plot_background(refresh=refresh)
+            if getattr(self, "dynamic_pages", None) is not None:
+                self.dynamic_pages.refresh_response_plot()
+                self.dynamic_pages.refresh_hysteresis_plot()
 
         def _apply_release_identity(self):
             self.setWindowTitle(PRODUCT_NAME)

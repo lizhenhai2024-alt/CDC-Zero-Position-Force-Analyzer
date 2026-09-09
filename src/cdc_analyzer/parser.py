@@ -40,18 +40,21 @@ def _normalize_name(name: object) -> str:
     return " ".join(str(name).strip().lower().replace("_", " ").split())
 
 
+def _canonical_for_name(name: object) -> str | None:
+    key = _normalize_name(name)
+    for canonical, aliases in COLUMN_ALIASES.items():
+        normalized = {_normalize_name(v) for v in aliases | {canonical}}
+        if key in normalized:
+            return canonical
+    return None
+
+
 def _canonicalize_columns(columns: Iterable[object]) -> dict[object, str]:
     mapping: dict[object, str] = {}
-    normalized_aliases = {
-        canonical: {_normalize_name(v) for v in aliases | {canonical}}
-        for canonical, aliases in COLUMN_ALIASES.items()
-    }
     for col in columns:
-        key = _normalize_name(col)
-        for canonical, aliases in normalized_aliases.items():
-            if key in aliases:
-                mapping[col] = canonical
-                break
+        canonical = _canonical_for_name(col)
+        if canonical is not None:
+            mapping[col] = canonical
     return mapping
 
 
@@ -69,7 +72,7 @@ def _coerce_required_numeric(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _parse_mts_dat(path: Path) -> DataSet:
-    # MTS text exports may repeat Data Acquisition blocks, headers, and unit rows.
+    """Parse repeated MTS Data Acquisition blocks without assuming channel order."""
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     rows: list[list[float | int]] = []
@@ -84,13 +87,27 @@ def _parse_mts_dat(path: Path) -> DataSet:
             continue
 
         block_id += 1
-        block_metadata.append({"Block ID": block_id, "header": line.strip()})
         if i + 2 >= len(lines):
             break
 
-        header = [v.strip() for v in lines[i + 1].split("\t") if v.strip()]
-        # Allow tabs used for layout; locate the required header row by names.
-        if not all(c in header for c in REQUIRED_COLUMNS):
+        raw_header = [v.strip() for v in lines[i + 1].split("\t")]
+        column_positions: dict[str, int] = {}
+        for position, name in enumerate(raw_header):
+            if not name:
+                continue
+            canonical = _canonical_for_name(name)
+            if canonical is not None and canonical not in column_positions:
+                column_positions[canonical] = position
+
+        block_metadata.append(
+            {
+                "Block ID": block_id,
+                "header": line.strip(),
+                "column_positions": dict(column_positions),
+            }
+        )
+
+        if not all(c in column_positions for c in REQUIRED_COLUMNS):
             i += 1
             continue
 
@@ -99,13 +116,12 @@ def _parse_mts_dat(path: Path) -> DataSet:
             raw = lines[j].strip()
             if raw:
                 parts = [p.strip() for p in lines[j].split("\t")]
-                if len(parts) >= 4:
-                    try:
-                        vals = [float(parts[k]) for k in range(4)]
-                    except (TypeError, ValueError):
-                        pass
-                    else:
-                        rows.append([*vals, block_id])
+                try:
+                    vals = [float(parts[column_positions[c]]) for c in REQUIRED_COLUMNS]
+                except (IndexError, TypeError, ValueError):
+                    pass
+                else:
+                    rows.append([*vals, block_id])
             j += 1
         i = j
 
