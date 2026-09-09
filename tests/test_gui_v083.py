@@ -105,9 +105,7 @@ def test_v083_response_labels_are_large_clear_and_cover_force_crossings():
     app.processEvents()
 
 
-def test_v083_is_the_packaged_gui_entry_point():
-    from pathlib import Path
+def test_v083_release_module_remains_available():
+    from cdc_analyzer.gui_release_v083 import _build_release_gui_classes_v083
 
-    root = Path(__file__).resolve().parents[1]
-    assert "gui_release_v083" in (root / "launcher.py").read_text(encoding="utf-8")
-    assert 'cdc_analyzer.gui_release_v083:main' in (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert callable(_build_release_gui_classes_v083)
