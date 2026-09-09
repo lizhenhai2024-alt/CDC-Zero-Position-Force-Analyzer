@@ -103,3 +103,5 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 - `t₉₀%限值` 为项目可选限值；未设置时只报告测量值，不自动判定合格性
 
 详细需求见 `docs/V1.0_REQUIREMENTS.md`；基础实测验证见 `docs/VALIDATION_2026-09-07.md`；V0.4 验证见 `docs/VALIDATION_V0.4_2026-09-07.md`。
+
+V0.8.4 历史绘图规则保留于 [V0.8.4 绘图规则](docs/V0.8.4_RESPONSE_MARKER_LAYOUT.md)。
