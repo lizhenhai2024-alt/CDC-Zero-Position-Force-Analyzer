@@ -8,9 +8,9 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import dynamic_gui as _base
-from .dynamic_analysis import CURRENT, LOAD, TIME, VELOCITY
+from .dynamic_analysis import CURRENT, LOAD, TIME, VELOCITY, load_dynamic_test_data
 from .dynamic_gui_v084 import DynamicPagesController as _BaseController
-from .hysteresis_v085 import analyze_hysteresis_v085
+from .hysteresis_v085 import analyze_hysteresis_v085, combine_hysteresis_datasets
 from .plot_layout_v085 import FlowLayout, IntersectionLabels
 
 
@@ -86,10 +86,13 @@ class DynamicPagesController(_BaseController):
         self.hysteresis_speed_tolerance.setValue(3)
         self.hysteresis_speed_tolerance.setSuffix(" %")
         self.speed_tolerance_label = QtWidgets.QLabel()
+        self.hysteresis_multi_file_button = QtWidgets.QPushButton()
+        self.hysteresis_multi_file_button.clicked.connect(self.open_hysteresis_files)
         self._flow_controls(self.hysteresis_page, [
             [self.hysteresis_standard_label, self.hysteresis_standard],
             [self.hysteresis_limit_label, self.hysteresis_limit],
             [self.speed_tolerance_label, self.hysteresis_speed_tolerance],
+            [self.hysteresis_multi_file_button],
             [self.hysteresis_analyze_button],
         ], self.hysteresis_file_label, self.hysteresis_status)
         self.hysteresis_view_combo = QtWidgets.QComboBox()
@@ -117,6 +120,8 @@ class DynamicPagesController(_BaseController):
         if not hasattr(self, "hysteresis_view_combo"):
             return
         self.speed_tolerance_label.setText(self._text("速度分组容差", "Speed grouping tolerance"))
+        self.hysteresis_multi_file_button.setText(self._text("加载多速度迟滞数据…", "Load multi-speed hysteresis data…"))
+        self._update_shared_source_labels()
         self.hysteresis_view_tabs.setTabText(0, self._text("图形分析", "Plot Analysis"))
         self.hysteresis_view_tabs.setTabText(1, self._text("结果数据", "Result Data"))
         self._rebuild_hysteresis_views()
@@ -124,6 +129,20 @@ class DynamicPagesController(_BaseController):
     def apply_language(self, language):
         super().apply_language(language)
         self._v085_language()
+
+    def set_shared_dataset(self, dataset, path=None):
+        self.hysteresis_paths = []
+        super().set_shared_dataset(dataset, path)
+
+    def _update_shared_source_labels(self):
+        super()._update_shared_source_labels()
+        paths = getattr(self, "hysteresis_paths", [])
+        if paths:
+            names = ", ".join(f"{path.parent.name}/{path.name}" for path in paths)
+            self.hysteresis_file_label.setText(self._text(
+                f"多速度迟滞数据：{len(paths)} 个文件｜{names}",
+                f"Multi-speed hysteresis data: {len(paths)} files | {names}",
+            ))
 
     def refresh_response_plot(self):
         for manager in getattr(self, "response_annotations", []):
@@ -207,6 +226,37 @@ class DynamicPagesController(_BaseController):
         finally:
             _base.analyze_hysteresis = previous
         self._rebuild_hysteresis_views()
+        if self.hysteresis_result is not None:
+            count = self.hysteresis_result.runs["Speed Group m/s"].nunique()
+            speeds = ", ".join(f"{v:.4g}" for v in sorted(self.hysteresis_result.runs["Speed Group m/s"].unique()))
+            results = len(self.hysteresis_result.summary)
+            self.hysteresis_status.setText(self._text(
+                f"分析完成：检测到 {count} 个速度组（{speeds} m/s），{results} 条迟滞结果",
+                f"Analysis complete: {count} speed group(s) ({speeds} m/s), {results} hysteresis result(s)",
+            ))
+
+    def open_hysteresis_files(self):
+        paths, _ = self.QtWidgets.QFileDialog.getOpenFileNames(
+            self.window,
+            self._text("加载多速度迟滞数据", "Load multi-speed hysteresis data"),
+            "",
+            self._file_filter(),
+        )
+        if not paths:
+            return
+        try:
+            datasets = [load_dynamic_test_data(path) for path in paths]
+            self.hysteresis_dataset = combine_hysteresis_datasets(datasets)
+            self.hysteresis_paths = [Path(path) for path in paths]
+            self.hysteresis_path = self.hysteresis_paths[0]
+            self.hysteresis_result = None
+            self._update_shared_source_labels()
+            self.hysteresis_status.setText(self._text(
+                "数据已合并；点击“分析迟滞”按实测速度分组。",
+                "Data combined; click Analyze Hysteresis to group measured speeds.",
+            ))
+        except Exception as exc:
+            self.QtWidgets.QMessageBox.critical(self.window, self._text("导入错误", "Import error"), str(exc))
 
     def _rebuild_hysteresis_views(self):
         if not hasattr(self, "hysteresis_view_combo"):
@@ -255,6 +305,7 @@ class DynamicPagesController(_BaseController):
         group_columns = ["Direction"] if mode == "current" else ["Speed Group m/s", "Direction"]
         if "Sweep Direction" in runs:
             group_columns.append("Sweep Direction")
+        plotted_y = []
         for index, (key, group) in enumerate(runs.groupby(group_columns, sort=True)):
             direction = str(group["Direction"].iloc[0])
             sweep = str(group["Sweep Direction"].iloc[0]) if "Sweep Direction" in group else "Sequence"
@@ -269,6 +320,7 @@ class DynamicPagesController(_BaseController):
             # retain its KFM excursions. Never connect different speed groups.
             group = group.sort_values(x_column if mode == "current" else "Block Order")
             y = np.abs(group[force_column].to_numpy(float)) * (1 if direction == "Rebound" else -1)
+            plotted_y.extend(y[np.isfinite(y)])
             speed_name = "" if mode == "current" else f"{group['Speed Group m/s'].iloc[0]:.4g} m/s "
             sweep_name = self._text({"Up": "升电流", "Down": "降电流", "Sequence": "平台顺序"}[sweep], sweep)
             name = f"{speed_name}{self._localized_direction(direction)} {sweep_name}"
@@ -278,6 +330,22 @@ class DynamicPagesController(_BaseController):
                 legend.addItem(curve, f"{speed_name}{self._localized_direction(direction)}")
                 legend_keys.add(legend_key)
         plot.addLine(y=0, pen=self.pg.mkPen("#888888", width=0.7))
+        if plotted_y:
+            lower, upper = float(np.min(plotted_y)), float(np.max(plotted_y))
+            span = max(upper - lower, abs(upper), abs(lower), 1.0)
+            plot.setYRange(min(0.0, lower) - 0.08 * span, max(0.0, upper) + 0.08 * span, padding=0)
+
+    def _prepare_hysteresis_plot_for_export(self):
+        self.window.tabs.setCurrentWidget(self.hysteresis_page)
+        if hasattr(self, "hysteresis_view_tabs"):
+            self.hysteresis_view_tabs.setCurrentWidget(self.hysteresis_plot_area)
+        self.refresh_hysteresis_plot()
+        QtWidgets.QApplication.processEvents()
+
+    def export_hysteresis_png(self):
+        if self.hysteresis_result is not None:
+            self._prepare_hysteresis_plot_for_export()
+        super().export_hysteresis_png()
 
     def _append_hysteresis_plot(self, workbook_path):
         from openpyxl import load_workbook
@@ -287,6 +355,9 @@ class DynamicPagesController(_BaseController):
             del workbook["Hysteresis Plot"]
         sheet = workbook.create_sheet("Hysteresis Plot")
         original = self.hysteresis_view_combo.currentIndex()
+        original_page = self.window.tabs.currentWidget()
+        original_view = self.hysteresis_view_tabs.currentWidget()
+        self._prepare_hysteresis_plot_for_export()
         with TemporaryDirectory(prefix="hysteresis_v085_") as tmp:
             try:
                 anchor_row = 1
@@ -305,3 +376,5 @@ class DynamicPagesController(_BaseController):
             finally:
                 self.hysteresis_view_combo.setCurrentIndex(original)
                 self.refresh_hysteresis_plot()
+                self.hysteresis_view_tabs.setCurrentWidget(original_view)
+                self.window.tabs.setCurrentWidget(original_page)
