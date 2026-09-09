@@ -73,10 +73,10 @@ def _assert_transparent_normal_axis_font(plot, item, QtCore):
 
 def test_v084_response_annotations_match_axis_font_and_are_transparent():
     from PySide6 import QtCore, QtWidgets
-    from cdc_analyzer.gui_release_v084 import _build_release_gui_classes_v084
+    from cdc_analyzer.runtime_gui_release import _build_release_gui_classes
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    MainWindow = _build_release_gui_classes_v084()
+    MainWindow = _build_release_gui_classes()
     window = MainWindow()
     pages = window.dynamic_pages
     pages.response_result = _fake_response_result()
@@ -108,10 +108,10 @@ def test_v084_response_annotations_match_axis_font_and_are_transparent():
 
 def test_v084_vertical_lines_have_curve_intersection_dots_and_aligned_text():
     from PySide6 import QtWidgets
-    from cdc_analyzer.gui_release_v084 import _build_release_gui_classes_v084
+    from cdc_analyzer.runtime_gui_release import _build_release_gui_classes
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    MainWindow = _build_release_gui_classes_v084()
+    MainWindow = _build_release_gui_classes()
     window = MainWindow()
     pages = window.dynamic_pages
     result = _fake_response_result()
@@ -155,9 +155,12 @@ def test_v084_vertical_lines_have_curve_intersection_dots_and_aligned_text():
     app.processEvents()
 
 
-def test_v084_is_the_packaged_gui_entry_point():
+def test_v084_behavior_is_packaged_through_canonical_runtime():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    assert "gui_release_v084" in (root / "launcher.py").read_text(encoding="utf-8")
-    assert 'cdc_analyzer.gui_release_v084:main' in (root / "pyproject.toml").read_text(encoding="utf-8")
+    launcher = (root / "launcher.py").read_text(encoding="utf-8")
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "cdc_analyzer.runtime_gui_release" in launcher
+    assert "cdc_analyzer.runtime_gui_release:main" in pyproject
+    assert "gui_release_v084" not in launcher
