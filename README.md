@@ -21,7 +21,7 @@
 - 气体反弹力支持“加上 / 减去”恒定修正，原始载荷永不覆盖
 - 响应分析的客户 Profile 与目标速度独立设置，支持 0.1、0.3、0.6、1.0 m/s 等任意正有限速度点
 - 响应时间统一以 I₁₀% 电流交点为零点，输出 t₁%、t₆₃%、t₉₀% = 对应力阈值交点时刻 − I₁₀% 交点时刻
-- 响应图采用放大工程下标标注，水平标注位于虚线上方，时间文字避开垂直虚线，并显示与所有力阈值相交的完整实测区间
+- 响应图文字采用透明背景、常规字重并与坐标轴标题同字号；电流/载荷图的垂直参考线在实测曲线交点显示圆点，时间文字沿竖线在交点正上方或正下方布置；载荷显示范围覆盖 F₁₀₀% 计算窗口
 - Summary / Run / Cycle 三级结果
 - Data Quality：按 acquisition block 输出采样点数、采样率、时间间隔、位移范围、载荷范围、电流中位数/标准差及结构性异常
 - GUI 分析前执行 Data Quality preflight；结构性 `Invalid` 输入停止分析
@@ -94,4 +94,4 @@ cdc-analyzer sample.dat --profile window_mean --window-percent 2 --window-basis 
 - Sweep 差异只做描述性输出，除非后续提供明确工程或客户限值
 - `t₉₀%限值` 为项目可选限值；未设置时只报告测量值，不自动判定合格性
 
-详细需求见 `docs/V1.0_REQUIREMENTS.md`；基础实测验证见 `docs/VALIDATION_2026-09-07.md`；V0.4 验证见 `docs/VALIDATION_V0.4_2026-09-07.md`。
+详细需求见 `docs/V1.0_REQUIREMENTS.md`；基础实测验证见 `docs/VALIDATION_2026-09-07.md`；V0.4 验证见 `docs/VALIDATION_V0.4_2026-09-07.md`；V0.8.4 绘图规则见 `docs/V0.8.4_RESPONSE_MARKER_LAYOUT.md`。
