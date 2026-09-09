@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from . import gui_release_v081 as _v081_module
+from . import gui_release_v083 as _v083_module
 from .dynamic_gui_v084 import DynamicPagesController
 from .gui import _qt_imports
 from .gui_release_v083 import _build_release_gui_classes_v083
@@ -15,12 +15,15 @@ def _build_release_gui_classes_v084():
 
     class MainWindow(BaseMainWindow):
         def __init__(self):
-            previous_controller = _v081_module.DynamicPagesController
-            _v081_module.DynamicPagesController = DynamicPagesController
+            # V0.8.3 injects its controller during construction. Replace that
+            # module-level controller temporarily so the existing release chain
+            # builds the same UI with the V0.8.4 response-plot implementation.
+            previous_controller = _v083_module.DynamicPagesController
+            _v083_module.DynamicPagesController = DynamicPagesController
             try:
                 super().__init__()
             finally:
-                _v081_module.DynamicPagesController = previous_controller
+                _v083_module.DynamicPagesController = previous_controller
 
         def _show_about_dialog(self):
             QtWidgets.QMessageBox.information(
