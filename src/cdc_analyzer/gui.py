@@ -14,6 +14,23 @@ from .parser import DataSet, load_test_data
 from .plotting import PlotSelection, available_plot_channels, evaluation_overlay, filter_processed_data, same_units, unit_for_channel
 
 
+AUXILIARY_PLOT_COLUMNS = {"Block ID", "Source Row"}
+
+
+def source_plot_channels(dataset: DataSet | None, processed: pd.DataFrame) -> list[str]:
+    """Return valid numeric channels that actually came from the imported file."""
+    if dataset is None:
+        return []
+    processed_channels = set(available_plot_channels(processed))
+    return [
+        column
+        for column in dataset.data.columns
+        if column not in AUXILIARY_PLOT_COLUMNS
+        and column in processed_channels
+        and pd.to_numeric(dataset.data[column], errors="coerce").notna().any()
+    ]
+
+
 def _qt_imports():
     try:
         from PySide6 import QtCore, QtWidgets
@@ -283,11 +300,10 @@ def _build_gui_classes():
             self.excel_button.setText(tr(self.language, "excel"))
             self.png_button.setText(tr(self.language, "png"))
 
-            profile_data = self.profile.currentData() or EvaluationProfile.AUDI.value
+            profile_data = self.profile.currentData() or EvaluationProfile.WINDOW_MEAN.value
             self._set_combo_items(
                 self.profile,
                 [
-                    (tr(self.language, "profile_audi"), EvaluationProfile.AUDI.value),
                     (tr(self.language, "profile_window"), EvaluationProfile.WINDOW_MEAN.value),
                     (tr(self.language, "profile_zero"), EvaluationProfile.ZERO_CROSSING.value),
                 ],
@@ -458,15 +474,10 @@ def _build_gui_classes():
             self._update_status_language()
 
         def _populate_plot_controls(self):
-            channels = available_plot_channels(self.result.processed)
+            channels = source_plot_channels(self.dataset, self.result.processed)
             dataset_changed = getattr(self, "_plot_controls_dataset", None) is not self.dataset
-            imported_channels = [
-                column
-                for column in self.dataset.data.columns
-                if column in channels and column not in {"Block ID", "Source Row"}
-            ] if self.dataset is not None else []
-            default_x = imported_channels[0] if imported_channels else (channels[0] if channels else None)
-            default_y = set(imported_channels[1:])
+            default_x = channels[0] if channels else None
+            default_y = set(channels[1:])
             old_x = self.x_axis.currentData()
             self.x_axis.blockSignals(True)
             self.x_axis.clear()

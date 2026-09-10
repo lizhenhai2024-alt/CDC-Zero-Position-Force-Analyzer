@@ -7,6 +7,7 @@ import pytest
 
 from cdc_analyzer.dynamic_analysis import TIME, CURRENT, LOAD, DISP, HysteresisConfig, HysteresisStandard
 from cdc_analyzer.parser import DataSet
+from cdc_analyzer.dynamic_gui_v085 import discover_hysteresis_dat_files
 from cdc_analyzer.hysteresis_v085 import analyze_hysteresis_v085, combine_hysteresis_datasets, speed_groups
 
 
@@ -53,6 +54,18 @@ def test_combines_separate_speed_files_without_block_id_collisions():
     assert merged.data["Source File"].nunique() == 4
     result = analyze_hysteresis_v085(merged, HysteresisConfig(standard=HysteresisStandard.BMW))
     assert result.runs["Speed Group m/s"].nunique() == 4
+
+
+def test_hysteresis_folder_scan_finds_dat_files_recursively(tmp_path):
+    nested = tmp_path / "speed" / "compression"
+    nested.mkdir(parents=True)
+    first = tmp_path / "root.dat"
+    second = nested / "specimen.DAT"
+    ignored = nested / "notes.csv"
+    for path in (first, second, ignored):
+        path.write_text("test", encoding="utf-8")
+
+    assert discover_hysteresis_dat_files(tmp_path) == [first, second]
 
 
 def test_v085_gui_response_and_hysteresis(tmp_path):
@@ -124,6 +137,7 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     pages.hysteresis_result = analyze_hysteresis_v085(multi_speed_data(), HysteresisConfig(standard=HysteresisStandard.BMW))
     pages._rebuild_hysteresis_views()
     assert pages.hysteresis_multi_file_button.isVisibleTo(pages.hysteresis_page)
+    assert pages.hysteresis_folder_button.isVisibleTo(pages.hysteresis_page)
     assert pages.hysteresis_view_combo.count() == 1 + 4 + 3
     plot = pages.hysteresis_plot_area.getItem(0, 0)
     assert plot.getAxis("left").label.toPlainText().strip() == "压缩<--阻尼力(N)-->复原"
@@ -156,6 +170,35 @@ def test_current_packaged_gui_is_v085():
     root = Path(__file__).resolve().parents[1]
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
+
+
+def test_main_evaluation_method_excludes_audi_and_defaults_to_window_mean():
+    from PySide6 import QtWidgets
+    from cdc_analyzer.analysis import EvaluationProfile
+    from cdc_analyzer.gui_release_v085 import _build_release_gui_classes_v085
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = _build_release_gui_classes_v085()()
+    methods = [window.profile.itemData(index) for index in range(window.profile.count())]
+
+    assert methods == [
+        EvaluationProfile.WINDOW_MEAN.value,
+        EvaluationProfile.ZERO_CROSSING.value,
+    ]
+    assert window.profile.currentData() == EvaluationProfile.WINDOW_MEAN.value
+    assert window.window_basis.currentData() == "total_stroke"
+    assert window.window_basis.count() == 1
+    assert window.window_basis.isHidden()
+    assert window.eval_form.labelForField(window.window_basis).isHidden()
+    assert window._config().window_basis == "total_stroke"
+
+    window.language_combo.setCurrentIndex(window.language_combo.findData("en_US"))
+    app.processEvents()
+    assert [window.profile.itemData(index) for index in range(window.profile.count())] == methods
+    assert window.profile.currentData() == EvaluationProfile.WINDOW_MEAN.value
+
+    window.close()
+    app.processEvents()
 
 
 @pytest.mark.parametrize(

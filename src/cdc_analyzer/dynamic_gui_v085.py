@@ -14,6 +14,15 @@ from .hysteresis_v085 import analyze_hysteresis_v085, combine_hysteresis_dataset
 from .plot_layout_v085 import FlowLayout, IntersectionLabels
 
 
+def discover_hysteresis_dat_files(folder: str | Path) -> list[Path]:
+    """Return all DAT files below a selected folder in stable path order."""
+    root = Path(folder)
+    return sorted(
+        (path for path in root.rglob("*") if path.is_file() and path.suffix.lower() == ".dat"),
+        key=lambda path: str(path).casefold(),
+    )
+
+
 class DynamicPagesController(_BaseController):
     def _font(self):
         font = QtGui.QFont(QtWidgets.QApplication.font())
@@ -88,11 +97,14 @@ class DynamicPagesController(_BaseController):
         self.speed_tolerance_label = QtWidgets.QLabel()
         self.hysteresis_multi_file_button = QtWidgets.QPushButton()
         self.hysteresis_multi_file_button.clicked.connect(self.open_hysteresis_files)
+        self.hysteresis_folder_button = QtWidgets.QPushButton()
+        self.hysteresis_folder_button.clicked.connect(self.open_hysteresis_folder)
         self._flow_controls(self.hysteresis_page, [
             [self.hysteresis_standard_label, self.hysteresis_standard],
             [self.hysteresis_limit_label, self.hysteresis_limit],
             [self.speed_tolerance_label, self.hysteresis_speed_tolerance],
             [self.hysteresis_multi_file_button],
+            [self.hysteresis_folder_button],
             [self.hysteresis_analyze_button],
         ], self.hysteresis_file_label, self.hysteresis_status)
         self.hysteresis_view_combo = QtWidgets.QComboBox()
@@ -121,6 +133,7 @@ class DynamicPagesController(_BaseController):
             return
         self.speed_tolerance_label.setText(self._text("速度分组容差", "Speed grouping tolerance"))
         self.hysteresis_multi_file_button.setText(self._text("加载多速度迟滞数据…", "Load multi-speed hysteresis data…"))
+        self.hysteresis_folder_button.setText(self._text("扫描迟滞数据文件夹…", "Scan hysteresis data folder…"))
         self._update_shared_source_labels()
         self.hysteresis_view_tabs.setTabText(0, self._text("图形分析", "Plot Analysis"))
         self.hysteresis_view_tabs.setTabText(1, self._text("结果数据", "Result Data"))
@@ -252,6 +265,30 @@ class DynamicPagesController(_BaseController):
         )
         if not paths:
             return
+        self._load_hysteresis_paths([Path(path) for path in paths])
+
+    def open_hysteresis_folder(self):
+        folder = self.QtWidgets.QFileDialog.getExistingDirectory(
+            self.window,
+            self._text("选择迟滞数据文件夹", "Select hysteresis data folder"),
+            "",
+        )
+        if not folder:
+            return
+        paths = discover_hysteresis_dat_files(folder)
+        if not paths:
+            self.QtWidgets.QMessageBox.information(
+                self.window,
+                self._text("未找到数据", "No data found"),
+                self._text(
+                    "所选文件夹及其子文件夹中没有 .dat 文件。",
+                    "No .dat files were found in the selected folder or its subfolders.",
+                ),
+            )
+            return
+        self._load_hysteresis_paths(paths)
+
+    def _load_hysteresis_paths(self, paths):
         try:
             datasets = [load_dynamic_test_data(path) for path in paths]
             self.hysteresis_dataset = combine_hysteresis_datasets(datasets)
@@ -260,8 +297,8 @@ class DynamicPagesController(_BaseController):
             self.hysteresis_result = None
             self._update_shared_source_labels()
             self.hysteresis_status.setText(self._text(
-                "数据已合并；点击“分析迟滞”按实测速度分组。",
-                "Data combined; click Analyze Hysteresis to group measured speeds.",
+                f"已合并 {len(paths)} 个文件；点击“分析迟滞”按实测速度分组。",
+                f"Combined {len(paths)} files; click Analyze Hysteresis to group measured speeds.",
             ))
         except Exception as exc:
             self.QtWidgets.QMessageBox.critical(self.window, self._text("导入错误", "Import error"), str(exc))

@@ -26,6 +26,7 @@ def _dataset():
         "Axial Displacement": x,
         "Axial Load": force,
         "CDC 1 Current FB_1": 0.8 + 0.0002 * np.sin(theta),
+        "Empty Sensor": np.nan,
         "Block ID": 1,
         "Source Row": np.arange(1, len(theta) + 1),
     })
@@ -60,6 +61,17 @@ def test_main_window_constructs_analyzes_and_switches_language_offscreen():
     assert window.sweep_table.model().rowCount() == 0
     assert window.x_axis.currentData() == "Running Time"
     assert window.x_axis.currentText() == "运行时间"
+    expected_channels = [
+        "Running Time",
+        "Axial Displacement",
+        "Axial Load",
+        "CDC 1 Current FB_1",
+    ]
+    assert [window.x_axis.itemData(index) for index in range(window.x_axis.count())] == expected_channels
+    assert [
+        window.y_axis.item(index).data(QtCore.Qt.ItemDataRole.UserRole)
+        for index in range(window.y_axis.count())
+    ] == expected_channels
     selected = {
         item.data(QtCore.Qt.ItemDataRole.UserRole): item.text()
         for item in window.y_axis.selectedItems()
