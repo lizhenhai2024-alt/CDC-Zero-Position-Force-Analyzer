@@ -140,11 +140,16 @@ Data Acquisition\t\tTime:\t8\ts\nRunning Time\tAxial Displacement\tAxial Load\tC
 def test_output_precision_rules():
     assert decimals_for_column("Rebound N") == 0
     assert decimals_for_column("Compression N") == 0
+    assert decimals_for_column("Force N") == 0
+    assert decimals_for_column("Abs Force N") == 0
+    assert decimals_for_column("Reference Damping Force N") == 0
+    assert decimals_for_column("Hysteresis N") == 0
     assert decimals_for_column("Current Label A") == 1
     assert decimals_for_column("Current Actual A") == 2
     assert decimals_for_column("Center Position mm") == 2
     assert format_value("Rebound N", 1000.6) == "1001"
     assert format_value("Compression N", -600.6) == "-601"
+    assert format_value("Force N", -568.6) == "-569"
     assert format_value("Current Label A", 0.84) == "0.8"
     assert format_value("Current Actual A", 0.836) == "0.84"
 

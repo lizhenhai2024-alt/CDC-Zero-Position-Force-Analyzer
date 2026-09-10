@@ -135,6 +135,10 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
         "above", "below", "above"
     ]
     pages.hysteresis_result = analyze_hysteresis_v085(multi_speed_data(), HysteresisConfig(standard=HysteresisStandard.BMW))
+    pages._fill_table(pages.hysteresis_run_table, pages.hysteresis_result.runs)
+    force_column = pages.hysteresis_result.runs.columns.get_loc("Force N")
+    expected_force = f"{pages.hysteresis_result.runs.iloc[0]['Force N']:.0f}"
+    assert pages.hysteresis_run_table.item(0, force_column).text() == expected_force
     pages._rebuild_hysteresis_views()
     assert pages.hysteresis_multi_file_button.isVisibleTo(pages.hysteresis_page)
     assert pages.hysteresis_folder_button.isVisibleTo(pages.hysteresis_page)
@@ -162,6 +166,16 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     from cdc_analyzer.dynamic_export import export_hysteresis_xlsx
     from openpyxl import load_workbook
     workbook_path = export_hysteresis_xlsx(pages.hysteresis_result, tmp_path / "grouped.xlsx")
+    exported_book = load_workbook(workbook_path)
+    run_sheet = exported_book["Run Detail"]
+    force_headers = {cell.value: cell.column for cell in run_sheet[1]}
+    for column in ("Force N", "Abs Force N"):
+        assert run_sheet.cell(2, force_headers[column]).number_format == "0"
+    summary_sheet = exported_book["Hysteresis Summary"]
+    summary_headers = {cell.value: cell.column for cell in summary_sheet[1]}
+    for column in ("Up Force N", "Down Force N", "Reference Damping Force N", "Hysteresis N"):
+        assert summary_sheet.cell(2, summary_headers[column]).number_format == "0"
+    exported_book.close()
     previous = pages.hysteresis_view_combo.currentIndex()
     pages._append_hysteresis_plot(workbook_path)
     assert pages.hysteresis_view_combo.currentIndex() == previous
