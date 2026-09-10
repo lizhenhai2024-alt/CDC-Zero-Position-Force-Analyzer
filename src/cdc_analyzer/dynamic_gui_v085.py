@@ -341,8 +341,12 @@ class DynamicPagesController(_BaseController):
         plot.showGrid(x=True, y=True, alpha=0.15)
         legend = self.pg.LegendItem(labelTextSize="10pt", colCount=2 if self.hysteresis_plot_area.width() < 850 else 4)
         self.hysteresis_plot_area.addItem(legend, row=1, col=0)
-        plot.setTitle(self._text("实线：升电流　虚线：降电流", "Solid: increasing current   Dashed: decreasing current")
-                      if "Sweep Direction" in runs else self._text("按实测电流平台顺序连接", "Connected in measured plateau order"), size="10pt")
+        plot.setTitle(
+            self._text("迟滞曲线：全部使用实线", "Hysteresis curves: all solid lines")
+            if "Sweep Direction" in runs
+            else self._text("按实测电流平台顺序连接（实线）", "Connected in measured plateau order (solid)"),
+            size="10pt",
+        )
         legend_keys = set()
         speeds = sorted(runs["Speed Group m/s"].unique())
         colors = ["#1565c0", "#c62828", "#00897b", "#ef6c00", "#6a1b9a", "#6d4c41", "#37474f", "#ad1457"]
@@ -358,8 +362,6 @@ class DynamicPagesController(_BaseController):
             color_index = (0 if mode == "current" else speeds.index(speed) * 2) + (direction == "Compression")
             color = colors[color_index % len(colors)]
             pen = self.pg.mkPen(color, width=1.5)
-            if sweep == "Down":
-                pen.setStyle(QtCore.Qt.PenStyle.DashLine)
             x_column = "Speed Group m/s" if mode == "current" else "Current Label A"
             # BMW uses ordered sweep points; Audi uses acquisition sequence to
             # retain its KFM excursions. Never connect different speed groups.

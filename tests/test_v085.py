@@ -141,11 +141,17 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     assert pages.hysteresis_view_combo.count() == 1 + 4 + 3
     plot = pages.hysteresis_plot_area.getItem(0, 0)
     assert plot.getAxis("left").label.toPlainText().strip() == "压缩<--阻尼力(N)-->复原"
+    assert all(
+        curve.opts["pen"].style() == QtCore.Qt.PenStyle.SolidLine
+        for curve in plot.listDataItems()
+    )
     ys = np.concatenate([p.yData for p in plot.listDataItems()])
     assert ys.min() < 0 < ys.max()
     for i in range(pages.hysteresis_view_combo.count()):
         pages.hysteresis_view_combo.setCurrentIndex(i)
-        assert pages.hysteresis_plot_area.getItem(0, 0).listDataItems()
+        curves = pages.hysteresis_plot_area.getItem(0, 0).listDataItems()
+        assert curves
+        assert all(curve.opts["pen"].style() == QtCore.Qt.PenStyle.SolidLine for curve in curves)
     window.tabs.setCurrentIndex(0)
     pages.hysteresis_view_combo.setCurrentIndex(0)
     pages._prepare_hysteresis_plot_for_export()
