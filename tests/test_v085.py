@@ -89,6 +89,19 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
             assert max(rect.left() for rect in level_rects) - min(
                 rect.left() for rect in level_rects
             ) < 1
+            level_geometry = [
+                (
+                    manager.plot.vb.mapViewToScene(QtCore.QPointF(x, y)).y(),
+                    rect.center().y(),
+                )
+                for (_, x, y, level), rect in zip(manager.labels, rects)
+                if level
+            ]
+            by_guide = sorted(level_geometry)
+            # Labels must preserve the screen order of their own guide lines.
+            assert [label_y for _, label_y in by_guide] == sorted(
+                label_y for _, label_y in by_guide
+            )
         assert len(manager.lines) == len(manager.guides)
         for (_, x, y, level), rect in zip(manager.labels, rects):
             if not level:
@@ -143,6 +156,50 @@ def test_current_packaged_gui_is_v085():
     root = Path(__file__).resolve().parents[1]
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
+
+
+@pytest.mark.parametrize(
+    ("levels", "force_curve", "f100_below_f90"),
+    [
+        ((-1310, -2050, -2850, -3000), (-1300, -3000), True),
+        ((900, 1800, 2800, 3000), (900, 3000), False),
+    ],
+)
+def test_force_level_labels_preserve_compression_and_rebound_order(
+    levels, force_curve, f100_below_f90
+):
+    from PySide6 import QtWidgets
+    from cdc_analyzer.gui_release_v085 import _build_release_gui_classes_v085
+    from test_gui_v083 import _fake_response_result
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = _build_release_gui_classes_v085()()
+    window.resize(1280, 800)
+    pages = window.dynamic_pages
+    result = _fake_response_result()
+    result.events.loc[0, ["F1 N", "F63 N", "F90 N", "F100 N"]] = levels
+    result.processed[LOAD] = np.linspace(*force_curve, len(result.processed))
+    pages.response_result = result
+    pages._rebuild_response_event_combo()
+    pages.refresh_response_plot()
+    window.show()
+    for _ in range(3):
+        app.processEvents()
+
+    manager = pages.response_annotations[1]
+    manager.update()
+    label_y = {
+        item.textItem.toPlainText(): rect.center().y()
+        for (item, _x, _y, level), rect in zip(manager.labels, manager.text_rects)
+        if level
+    }
+    if f100_below_f90:
+        assert label_y["F₁₀₀%"] > label_y["F₉₀%"]
+    else:
+        assert label_y["F₁₀₀%"] < label_y["F₉₀%"]
+
+    window.close()
+    app.processEvents()
 
 
 @pytest.mark.parametrize("scale", ["1", "1.5"])
