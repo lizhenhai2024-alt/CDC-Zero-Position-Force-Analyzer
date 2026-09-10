@@ -95,13 +95,54 @@ class IntersectionLabels:
             if bounds.width() < 50 or bounds.height() < 50:
                 return
             rects = []
+            rect_by_item = {}
+
+            # Level labels share a left column. Lay them out as one ordered
+            # stack so collision avoidance can never visually exchange two
+            # adjacent thresholds (most noticeably F90 and F100).
+            level_entries = []
             for item, x, y, level in self.labels:
+                if not level:
+                    continue
+                point = vb.mapViewToScene(QtCore.QPointF(x, y))
+                width = item.boundingRect().width()
+                height = item.boundingRect().height()
+                left = max(bounds.left(), min(point.x(), bounds.right() - width))
+                desired_cy = point.y() - 6 - height / 2
+                level_entries.append((point.y(), item, left, width, height, desired_cy))
+
+            ordered_levels = sorted(level_entries, key=lambda entry: entry[0])
+            next_top = None
+            stacked = []
+            for entry in reversed(ordered_levels):
+                _guide_y, item, left, width, height, desired_cy = entry
+                cy = desired_cy
+                if next_top is not None:
+                    cy = min(cy, next_top - 4 - height / 2)
+                stacked.append([item, left, width, height, cy])
+                next_top = cy - height / 2
+            stacked.reverse()
+
+            if stacked:
+                top = stacked[0][4] - stacked[0][3] / 2
+                if top < bounds.top():
+                    shift = bounds.top() - top
+                    for entry in stacked:
+                        entry[4] += shift
+
+            for item, left, width, height, cy in stacked:
+                chosen = QtCore.QRectF(left, cy - height / 2, width, height)
+                item.setPos(vb.mapSceneToView(chosen.center()))
+                rects.append(chosen)
+                rect_by_item[item] = chosen
+
+            for item, x, y, level in self.labels:
+                if level:
+                    continue
                 point = vb.mapViewToScene(QtCore.QPointF(x, y))
                 width, height = item.boundingRect().width(), item.boundingRect().height()
                 placement = self.placements.get(item, "auto")
-                if level:
-                    x_candidates = [point.x() + width / 2]
-                elif placement.endswith("-left"):
+                if placement.endswith("-left"):
                     x_candidates = [point.x() - width / 2 - 6,
                                     point.x() + width / 2 + 6]
                 elif placement.endswith("-right"):
@@ -154,7 +195,8 @@ class IntersectionLabels:
                     chosen = QtCore.QRectF(cx - width / 2, cy - height / 2, width, height)
                 item.setPos(vb.mapSceneToView(chosen.center()))
                 rects.append(chosen)
-            self.text_rects = rects
+                rect_by_item[item] = chosen
+            self.text_rects = [rect_by_item[item] for item, *_ in self.labels]
             for line in self.lines:
                 self.plot.removeItem(line)
             self.lines.clear()
