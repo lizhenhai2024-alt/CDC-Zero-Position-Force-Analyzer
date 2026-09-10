@@ -104,14 +104,8 @@ def _help_html(language: str) -> str:
         <div class="note">运动方向由位移变化判断，载荷正负用于一致性校验，程序不会用载荷符号代替运动方向。</div>
 
         <h2>3. 阻尼力评价方法</h2>
-        <h3>Audi</h3>
-        <p>使用该工况的<b>最后一个完整测量循环</b>。以该循环的实际行程中心为中心，建立<b>总行程 10%</b> 的评价窗口，即中心两侧各 ±5% × Total Stroke。</p>
-        <ul>
-          <li>复原结果：窗口内最大正载荷。</li>
-          <li>压缩结果：窗口内最小负载荷。</li>
-        </ul>
         <h3>窗口均值</h3>
-        <p>在中心附近的可配置窗口内，将复原与压缩数据按运动方向分开后分别求均值。窗口比例与基准可设置。</p>
+        <p>在中心附近的可配置窗口内，将复原与压缩数据按运动方向分开后分别求均值。窗口比例可设置，窗口基准固定为总行程全宽。</p>
         <h3>目标位移穿越插值</h3>
         <p>默认目标位置 X=0 mm。程序寻找跨越目标位移的相邻采样点，对复原、压缩分别进行线性插值。</p>
 
@@ -133,7 +127,7 @@ def _help_html(language: str) -> str:
           <tr><td>鼠标滚轮</td><td>PyQtGraph 原生滚轮缩放仍可使用。</td></tr>
           <tr><td>背景</td><td>白色、黑色、浅灰、深灰或任意自定义颜色；PNG 导出沿用当前背景。</td></tr>
         </table>
-        <p>导入新数据后，X 轴默认选择第 1 个可绘制的原始数据列，Y 轴默认选择其余原始数据列。选中的 Y 轴字段文字采用与对应曲线一致的颜色，改变选择后自动同步。重新分析同一文件时保留手动选择；不同量纲的多个 Y 字段自动采用上下分图并共享 X 轴。</p>
+        <p>导入新数据后，X/Y 轴列表只显示原始文件中实际存在且含有效数值的通道列，不显示辅助列、分析派生列或全空列。X 轴默认选择第 1 个通道，Y 轴默认选择其余通道。选中的 Y 轴字段文字采用与对应曲线一致的颜色，改变选择后自动同步。重新分析同一文件时保留手动选择；不同量纲的多个 Y 字段自动采用上下分图并共享 X 轴。</p>
 
         <h2>6. 数据质量页面</h2>
         <p>按原始 Acquisition Block 输出采样点数、采样频率、时间间隔、位移范围、载荷范围、电流中位值与标准差等。结构性错误会阻止工程评价，例如：</p>
@@ -185,13 +179,12 @@ def _help_html(language: str) -> str:
     <h2>2. Sign convention</h2>
     <p>Rebound: <code>dX/dt &gt; 0</code>, expected force &gt; 0. Compression: <code>dX/dt &lt; 0</code>, expected force &lt; 0. Motion direction is determined from displacement; force sign is a consistency check.</p>
     <h2>3. Evaluation profiles</h2>
-    <h3>Audi</h3><p>Last complete measured cycle; evaluation window total width = 10% of total stroke, centered on the measured stroke center. Rebound uses the maximum positive force; compression uses the minimum negative force.</p>
-    <h3>Window Mean</h3><p>Separately averages rebound and compression samples inside a configurable center window.</p>
+    <h3>Window Mean</h3><p>Separately averages rebound and compression samples inside a configurable center window. The percentage is configurable and the basis is fixed to the full total stroke.</p>
     <h3>Target-position crossing</h3><p>Linearly interpolates rebound and compression force at the selected target displacement, normally 0 mm.</p>
     <h2>4. Gas rebound-force correction</h2>
     <p>Select either <code>Corrected Load = Measured Load - Gas Force</code> or <code>Corrected Load = Measured Load + Gas Force</code>. Pressure calculation uses <code>Fg = Pg × π × d² / 4</code>, with gauge pressure in MPa and rod diameter in mm.</p>
     <h2>5. Plot tools</h2>
-    <p>After a new data file is imported, the first plottable source column is selected as X and all remaining source columns are selected as Y. Selected Y-field text uses the same color as its plotted curve and updates whenever the selection changes. Reanalyzing the same file preserves manual selections. Zoom In, Zoom Out, Box Zoom, Pan and Reset are available above the plot. Mouse-wheel zoom remains available. Background can be White, Black, Light Gray, Dark Gray or a custom color, and PNG export uses the active plot background.</p>
+    <p>After a new data file is imported, the X/Y selectors contain only source channels that actually exist and have numeric data. Auxiliary columns, derived analysis columns, and empty columns are excluded. The first channel is selected as X and all remaining channels as Y. Selected Y-field text uses the same color as its plotted curve and updates whenever the selection changes. Reanalyzing the same file preserves manual selections. Zoom In, Zoom Out, Box Zoom, Pan and Reset are available above the plot. Mouse-wheel zoom remains available. Background can be White, Black, Light Gray, Dark Gray or a custom color, and PNG export uses the active plot background.</p>
     <h2>6. Data quality</h2>
     <p>Reports sample count/rate, time intervals, displacement/load ranges, current median/std and structural problems by acquisition block. Structural Invalid input blocks engineering analysis. Sampling rate is reported but not judged against an unstated customer limit.</p>
     <h2>7. Sweep comparison</h2>
