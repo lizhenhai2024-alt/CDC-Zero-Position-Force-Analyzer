@@ -6,6 +6,7 @@ import pandas as pd
 
 # Presentation-only precision rules. Analysis data always keeps full precision internally.
 FORCE_RESULT_COLUMNS = {"Rebound N", "Compression N"}
+FORCE_RESULT_SUFFIXES = ("Force N", "Hysteresis N")
 ONE_DECIMAL_COLUMNS = {"Current Label A", "Current Label"}
 INTEGER_HINTS = (" ID", " Count")
 INTEGER_COLUMNS = {"Block ID", "Source Row", "Run Count"}
@@ -13,7 +14,7 @@ INTEGER_COLUMNS = {"Block ID", "Source Row", "Run Count"}
 
 def decimals_for_column(column: str) -> int:
     """Return the display precision for a result/output column."""
-    if column in FORCE_RESULT_COLUMNS:
+    if column in FORCE_RESULT_COLUMNS or column.endswith(FORCE_RESULT_SUFFIXES):
         return 0
     if column in ONE_DECIMAL_COLUMNS:
         return 1
