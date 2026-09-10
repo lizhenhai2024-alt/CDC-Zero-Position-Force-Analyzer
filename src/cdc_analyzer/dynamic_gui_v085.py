@@ -362,6 +362,7 @@ class DynamicPagesController(_BaseController):
             color_index = (0 if mode == "current" else speeds.index(speed) * 2) + (direction == "Compression")
             color = colors[color_index % len(colors)]
             pen = self.pg.mkPen(color, width=1.5)
+            pen.setStyle(QtCore.Qt.PenStyle.SolidLine)
             x_column = "Speed Group m/s" if mode == "current" else "Current Label A"
             # BMW uses ordered sweep points; Audi uses acquisition sequence to
             # retain its KFM excursions. Never connect different speed groups.
