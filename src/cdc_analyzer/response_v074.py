@@ -290,6 +290,8 @@ def analyze_response_time_v074(
     config = config or ResponseConfig()
     if not 0 < config.trigger_fraction < 1:
         raise ValueError("Trigger fraction must be between 0 and 1")
+    if not 0 < config.force_start_fraction < 0.63:
+        raise ValueError("Initial force fraction must be between 0 and 0.63")
     if not 0 < config.end_average_fraction <= 0.5:
         raise ValueError("End-average fraction must be in (0, 0.5]")
     if not 0 < target_speed_tolerance <= 0.5:
@@ -399,7 +401,7 @@ def analyze_response_time_v074(
         response_t = np.concatenate(([t0], eval_t[post_mask]))
         response_f = np.concatenate(([force_0], eval_f[post_mask]))
         thresholds: dict[float, tuple[float, float | None]] = {}
-        for fraction in (0.01, 0.63, 0.90):
+        for fraction in (config.force_start_fraction, 0.63, 0.90):
             target_force = force_0 + fraction * delta_force
             crossing = _first_level_crossing(
                 response_t,
@@ -414,7 +416,7 @@ def analyze_response_time_v074(
                 return float("nan")
             return float((crossing - t0) * 1000.0)
 
-        t1_cross = thresholds[0.01][1]
+        t1_cross = thresholds[config.force_start_fraction][1]
         t63_cross = thresholds[0.63][1]
         t90_cross = thresholds[0.90][1]
         t63_s = (t63_cross - t0) if t63_cross is not None else float("nan")
@@ -447,6 +449,7 @@ def analyze_response_time_v074(
                 issues.append("velocity variation around switching exceeds 10%")
 
         switch90 = elapsed_ms(t90_cross)
+        trigger_reference = f"I{config.trigger_fraction * 100:g}% current crossing"
         if config.t90_limit_ms is None:
             status = "Warning" if issues else "OK"
         elif not np.isfinite(switch90):
@@ -472,10 +475,12 @@ def analyze_response_time_v074(
                 "Current 100% A": current_end,
                 "t0 s": t0,
                 "I10 Crossing Time s": t0,
+                "Trigger Crossing Time s": t0,
                 "F1 Crossing Time s": float(t1_cross) if t1_cross is not None else float("nan"),
+                "Initial Force Crossing Time s": float(t1_cross) if t1_cross is not None else float("nan"),
                 "F63 Crossing Time s": float(t63_cross) if t63_cross is not None else float("nan"),
                 "F90 Crossing Time s": float(t90_cross) if t90_cross is not None else float("nan"),
-                "Timing Reference": "I10% current crossing",
+                "Timing Reference": trigger_reference,
                 "Displacement at t0 mm": x_0,
                 "Velocity at t0 m/s": velocity_0,
                 "Target Velocity m/s": signed_target,
@@ -489,10 +494,13 @@ def analyze_response_time_v074(
                 "F0 N": force_0,
                 "F100 N": force_100,
                 "Delta F N": delta_force,
-                "F1 N": thresholds[0.01][0],
+                "Force Start Fraction": config.force_start_fraction,
+                "F1 N": thresholds[config.force_start_fraction][0],
+                "Initial Force Threshold N": thresholds[config.force_start_fraction][0],
                 "F63 N": thresholds[0.63][0],
                 "F90 N": thresholds[0.90][0],
                 "Dead Time t1 ms": elapsed_ms(t1_cross),
+                "Initial Force Response Time ms": elapsed_ms(t1_cross),
                 "Switch Time t63 ms": elapsed_ms(t63_cross),
                 "Switch Time t90 ms": switch90,
                 "Gradient 63 N/s": gradient63,
@@ -517,7 +525,11 @@ def analyze_response_time_v074(
         "Analysis Mode": "Response Time V0.7.4",
         "OEM Profile": config.standard.value,
         "Trigger Fraction": config.trigger_fraction,
-        "Timing Reference": "Force-threshold crossing time minus I10% current crossing time",
+        "Force Start Fraction": config.force_start_fraction,
+        "Timing Reference": (
+            "Force-threshold crossing time minus "
+            f"I{config.trigger_fraction * 100:g}% current crossing time"
+        ),
         "End Average Fraction": config.end_average_fraction,
         "Target Speed Tolerance %": target_speed_tolerance * 100.0,
         "Target Speeds m/s": ", ".join(f"{v:g}" for v in _target_speeds(config.standard)),

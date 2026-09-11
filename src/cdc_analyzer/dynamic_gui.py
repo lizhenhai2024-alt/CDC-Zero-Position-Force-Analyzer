@@ -275,6 +275,11 @@ class DynamicPagesController:
             config = ResponseConfig(
                 standard=standard,
                 trigger_fraction=self.response_trigger.value() / 100.0,
+                force_start_fraction=(
+                    self.response_force_start_fraction.value() / 100.0
+                    if hasattr(self, "response_force_start_fraction")
+                    else 0.01
+                ),
                 end_average_fraction=self.response_end_fraction.value() / 100.0,
                 t90_limit_ms=limit,
             )

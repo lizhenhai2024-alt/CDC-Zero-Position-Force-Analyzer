@@ -78,6 +78,9 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     window = _build_release_gui_classes_v085()()
     window.resize(1280, 800)
     pages = window.dynamic_pages
+    assert pages.response_force_start_fraction.value() == pytest.approx(1.0)
+    assert pages.response_show_f1.isChecked()
+    assert pages.response_show_f63.isChecked()
     pages.response_result = _fake_response_result()
     pages._rebuild_response_event_combo()
     window.tabs.setCurrentWidget(pages.response_page)
@@ -190,6 +193,54 @@ def test_current_packaged_gui_is_v085():
     root = Path(__file__).resolve().parents[1]
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
+
+
+def test_response_threshold_labels_follow_settings_and_visibility():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6 import QtWidgets
+    from cdc_analyzer.gui_release_v085 import _build_release_gui_classes_v085
+    from test_gui_v083 import _fake_response_result
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = _build_release_gui_classes_v085()()
+    pages = window.dynamic_pages
+    result = _fake_response_result()
+    result.events["Trigger Fraction"] = 0.25
+    result.events["Force Start Fraction"] = 0.05
+    pages.response_result = result
+    pages.response_force_start_fraction.setValue(5.0)
+    pages._rebuild_response_event_combo()
+    pages.refresh_response_plot()
+
+    current_labels = [
+        (item.textItem.toPlainText(), x, level)
+        for item, x, _y, level in pages.response_annotations[0].labels
+    ]
+    assert ("I₂₅%", float(result.events.iloc[0]["t0 s"]), False) in current_labels
+    assert not any(text == "I₂₅%" and level for text, _x, level in current_labels)
+
+    force_texts = [
+        item.textItem.toPlainText()
+        for item, _x, _y, _level in pages.response_annotations[1].labels
+    ]
+    assert "F₅%" in force_texts
+    assert any(text.startswith("t₅% =") for text in force_texts)
+    assert "F₆₃%" in force_texts
+
+    pages.response_show_f1.setChecked(False)
+    pages.response_show_f63.setChecked(False)
+    force_texts = [
+        item.textItem.toPlainText()
+        for item, _x, _y, _level in pages.response_annotations[1].labels
+    ]
+    assert "F₅%" not in force_texts
+    assert "F₆₃%" not in force_texts
+    assert not any(text.startswith(("t₅% =", "t₆₃% =")) for text in force_texts)
+    assert "F₉₀%" in force_texts
+    assert "F₁₀₀%" in force_texts
+
+    window.close()
+    app.processEvents()
 
 
 def test_main_evaluation_method_excludes_audi_and_defaults_to_window_mean():

@@ -32,6 +32,7 @@ class HysteresisStandard(str, Enum):
 class ResponseConfig:
     standard: ResponseStandard = ResponseStandard.AUDI
     trigger_fraction: float = 0.10
+    force_start_fraction: float = 0.01
     end_average_fraction: float = 0.02
     plateau_fraction: float = 0.15
     min_current_step_a: float = 0.05
@@ -224,6 +225,8 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
     config = config or ResponseConfig()
     if not 0 < config.trigger_fraction < 1:
         raise ValueError("Trigger fraction must be between 0 and 1")
+    if not 0 < config.force_start_fraction < 0.63:
+        raise ValueError("Initial force fraction must be between 0 and 0.63")
     if not 0 < config.end_average_fraction <= 0.5:
         raise ValueError("End-average fraction must be in (0, 0.5]")
 
@@ -290,7 +293,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
         response_t = np.concatenate(([t0], ts[after_mask]))
         response_f = np.concatenate(([force_0], fs[after_mask]))
         thresholds: dict[float, tuple[float, float | None]] = {}
-        for fraction in (0.01, 0.63, 0.90):
+        for fraction in (config.force_start_fraction, 0.63, 0.90):
             target = force_0 + fraction * delta_force
             crossing = _first_level_crossing(
                 response_t, response_f, target, start_idx=0, direction=force_direction
@@ -302,7 +305,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
                 return float("nan")
             return float((crossing - t0) * 1000.0)
 
-        t1 = thresholds[0.01][1]
+        t1 = thresholds[config.force_start_fraction][1]
         t63 = thresholds[0.63][1]
         t90 = thresholds[0.90][1]
         dt63_s = (t63 - t0) if t63 is not None else float("nan")
@@ -331,6 +334,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
                 issues.append("velocity variation around switching exceeds 10%")
 
         switch90 = elapsed_ms(t90)
+        trigger_reference = f"I{config.trigger_fraction * 100:g}% current crossing"
         if config.t90_limit_ms is None:
             status = "Warning" if issues else "OK"
         elif not np.isfinite(switch90):
@@ -348,6 +352,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
                 "Trigger Fraction": config.trigger_fraction,
                 "Trigger Current A": trigger_current,
                 "t0 s": t0,
+                "Trigger Crossing Time s": t0,
                 "Displacement at t0 mm": x_0,
                 "Velocity at t0 m/s": velocity_0,
                 "Direction": "Rebound" if velocity_0 > 0 else "Compression",
@@ -355,10 +360,13 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
                 "F0 N": force_0,
                 "F100 N": force_100,
                 "Delta F N": delta_force,
-                "F1 N": thresholds[0.01][0],
+                "Force Start Fraction": config.force_start_fraction,
+                "F1 N": thresholds[config.force_start_fraction][0],
+                "Initial Force Threshold N": thresholds[config.force_start_fraction][0],
                 "F63 N": thresholds[0.63][0],
                 "F90 N": thresholds[0.90][0],
                 "Dead Time t1 ms": elapsed_ms(t1),
+                "Initial Force Response Time ms": elapsed_ms(t1),
                 "Switch Time t63 ms": elapsed_ms(t63),
                 "Switch Time t90 ms": switch90,
                 "Gradient 63 N/s": gradient63,
@@ -367,6 +375,7 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
                 "Segment Start s": float(ts[0]),
                 "Segment End s": float(ts[-1]),
                 "Status": status,
+                "Timing Reference": trigger_reference,
                 "Issues": "; ".join(issues),
             }
         )
@@ -378,6 +387,11 @@ def analyze_response_time(dataset: DataSet, config: ResponseConfig | None = None
         "Analysis Mode": "Response Time",
         "OEM Profile": config.standard.value,
         "Trigger Fraction": config.trigger_fraction,
+        "Force Start Fraction": config.force_start_fraction,
+        "Timing Reference": (
+            "Force-threshold crossing time minus "
+            f"I{config.trigger_fraction * 100:g}% current crossing time"
+        ),
         "End Average Fraction": config.end_average_fraction,
         "t90 Limit ms": config.t90_limit_ms,
         "Source Format": dataset.source_format,
