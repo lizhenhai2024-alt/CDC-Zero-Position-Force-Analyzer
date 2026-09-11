@@ -145,7 +145,7 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     pages._rebuild_hysteresis_views()
     assert pages.hysteresis_multi_file_button.isVisibleTo(pages.hysteresis_page)
     assert pages.hysteresis_folder_button.isVisibleTo(pages.hysteresis_page)
-    assert pages.hysteresis_view_combo.count() == 1 + 4 + 3
+    assert pages.hysteresis_view_combo.count() == 1 + 1 + 4 + 3
     plot = pages.hysteresis_plot_area.getItem(0, 0)
     assert plot.getAxis("left").label.toPlainText().strip() == "压缩<--阻尼力(N)-->复原"
     assert all(
@@ -159,7 +159,17 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     assert ys.min() < 0 < ys.max()
     for i in range(pages.hysteresis_view_combo.count()):
         pages.hysteresis_view_combo.setCurrentIndex(i)
-        curves = pages.hysteresis_plot_area.getItem(0, 0).listDataItems()
+        selected_mode = pages.hysteresis_view_combo.currentData()[0]
+        selected_plot = pages.hysteresis_plot_area.getItem(0, 0)
+        if selected_mode == "hysteresis_bar":
+            bars = [item for item in selected_plot.items if isinstance(item, pg.BarGraphItem)]
+            assert bars
+            assert all(np.all(np.asarray(item.opts["height"]) >= 0) for item in bars)
+            labels = [item for item in selected_plot.items if isinstance(item, pg.TextItem)]
+            assert labels
+            assert all(item.toPlainText().isdigit() for item in labels)
+            continue
+        curves = selected_plot.listDataItems()
         assert curves
         assert all(curve.opts["pen"].style() == QtCore.Qt.PenStyle.SolidLine for curve in curves)
         assert all(curve.opts["symbol"] is None for curve in curves)
@@ -188,7 +198,7 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
     pages._append_hysteresis_plot(workbook_path)
     assert pages.hysteresis_view_combo.currentIndex() == previous
     book = load_workbook(workbook_path)
-    assert len(book["Hysteresis Plot"]._images) == 8
+    assert len(book["Hysteresis Plot"]._images) == 9
     book.close()
     window.close()
     app.processEvents()
@@ -199,7 +209,7 @@ def test_current_packaged_gui_is_v085():
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
     workflow = (root / ".github" / "workflows" / "build-windows.yml").read_text()
-    assert "APP_VERSION: V0.8.16" in workflow
+    assert "APP_VERSION: V0.8.17" in workflow
     assert 'Damper_Test_Data_Analyzer_$env:APP_VERSION' in workflow
     assert "Damper_Test_Data_Analyzer_${{ env.APP_VERSION }}.exe" in workflow
 

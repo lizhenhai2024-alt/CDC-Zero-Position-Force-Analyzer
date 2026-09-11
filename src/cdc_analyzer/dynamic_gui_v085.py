@@ -399,6 +399,20 @@ class DynamicPagesController(_BaseController):
         combo.addItem(self._text("全部速度：电流—阻尼力", "All speeds: current–force"), ("all", None))
         if self.hysteresis_result is not None:
             runs = self.hysteresis_result.runs
+            summary = self.hysteresis_result.summary
+            has_current_hysteresis = (
+                not summary.empty
+                and "Hysteresis N" in summary
+                and (
+                    "Current A" in summary
+                    or np.isfinite(float(self.hysteresis_result.settings.get("KFM Current A", np.nan)))
+                )
+            )
+            if has_current_hysteresis:
+                combo.addItem(
+                    self._text("电流—迟滞力柱状图", "Current–hysteresis force bars"),
+                    ("hysteresis_bar", None),
+                )
             for speed in sorted(runs["Speed Group m/s"].unique()):
                 combo.addItem(self._text(f"速度 {speed:.4g} m/s：电流—阻尼力迟滞", f"Speed {speed:.4g} m/s: current–force hysteresis"), ("speed", float(speed)))
             for current in sorted(runs["Current Label A"].unique()):
@@ -417,6 +431,9 @@ class DynamicPagesController(_BaseController):
             return
         selected = self.hysteresis_view_combo.currentData() if hasattr(self, "hysteresis_view_combo") else None
         mode, value = selected or ("all", None)
+        if mode == "hysteresis_bar":
+            self._plot_current_hysteresis_bars()
+            return
         if mode == "speed":
             runs = runs[runs["Speed Group m/s"] == value]
         elif mode == "current":
@@ -480,6 +497,76 @@ class DynamicPagesController(_BaseController):
             lower, upper = float(np.min(plotted_y)), float(np.max(plotted_y))
             span = max(upper - lower, abs(upper), abs(lower), 1.0)
             plot.setYRange(min(0.0, lower) - 0.08 * span, max(0.0, upper) + 0.08 * span, padding=0)
+
+    def _plot_current_hysteresis_bars(self):
+        """Plot current against hysteresis force for every speed and direction."""
+        summary = self.hysteresis_result.summary.copy()
+        if "Current A" not in summary:
+            summary["Current A"] = float(
+                self.hysteresis_result.settings.get("KFM Current A", np.nan)
+            )
+        required = ["Current A", "Hysteresis N", "Direction"]
+        summary = summary.dropna(subset=required)
+        if summary.empty:
+            return
+
+        group_columns = ["Current A", "Direction"]
+        if "Speed Group m/s" in summary:
+            group_columns.insert(1, "Speed Group m/s")
+        summary = summary.groupby(group_columns, as_index=False)["Hysteresis N"].mean()
+        currents = sorted(summary["Current A"].unique())
+        positions = {current: index for index, current in enumerate(currents)}
+        series_columns = [column for column in ("Speed Group m/s", "Direction") if column in summary]
+        series = list(summary.groupby(series_columns, sort=True))
+
+        plot = self.hysteresis_plot_area.addPlot(row=0, col=0)
+        self._axis_style(plot, self._text("迟滞力", "Hysteresis force"), "N")
+        plot.setLabel("bottom", self._text("电流", "Current"), units="A", **{"font-size": "10pt"})
+        plot.getAxis("bottom").setTicks([[(float(i), f"{current:g}") for i, current in enumerate(currents)]])
+        plot.showGrid(x=False, y=True, alpha=0.18)
+        plot.setTitle(self._text("电流—迟滞力柱状图", "Current–hysteresis force bar chart"), size="10pt")
+        legend = self.pg.LegendItem(labelTextSize="10pt", colCount=2 if self.hysteresis_plot_area.width() < 850 else 4)
+        self.hysteresis_plot_area.addItem(legend, row=1, col=0)
+
+        colors = ["#1565c0", "#c62828", "#00897b", "#ef6c00", "#6a1b9a", "#6d4c41", "#37474f", "#ad1457"]
+        total_width = 0.82
+        bar_width = total_width / max(len(series), 1)
+        maximum = 0.0
+        foreground = getattr(self.window, "_plot_foreground_color", "#202020")
+        for series_index, (key, group) in enumerate(series):
+            key = key if isinstance(key, tuple) else (key,)
+            x = np.array([positions[current] for current in group["Current A"]], dtype=float)
+            x += -total_width / 2 + bar_width * (series_index + 0.5)
+            heights = group["Hysteresis N"].to_numpy(float)
+            maximum = max(maximum, float(np.max(heights)))
+            color = colors[series_index % len(colors)]
+            bars = self.pg.BarGraphItem(
+                x=x,
+                height=heights,
+                width=bar_width * 0.88,
+                brush=self.pg.mkBrush(color),
+                pen=self.pg.mkPen(color, width=1.0),
+            )
+            plot.addItem(bars)
+            labels = dict(zip(series_columns, key))
+            speed_text = (
+                f"{float(labels['Speed Group m/s']):.4g} m/s "
+                if "Speed Group m/s" in labels
+                else ""
+            )
+            direction_text = self._localized_direction(str(labels.get("Direction", "")))
+            legend.addItem(bars, f"{speed_text}{direction_text}".strip())
+            for x_value, height in zip(x, heights):
+                label = self.pg.TextItem(
+                    text=f"{height:.0f}",
+                    color=foreground,
+                    anchor=(0.5, 1.0),
+                )
+                label.setFont(self._font())
+                label.setPos(float(x_value), float(height))
+                plot.addItem(label, ignoreBounds=True)
+        plot.setXRange(-0.55, max(len(currents) - 0.45, 0.55), padding=0)
+        plot.setYRange(0, max(maximum * 1.18, 1.0), padding=0)
 
     def _prepare_hysteresis_plot_for_export(self):
         self.window.tabs.setCurrentWidget(self.hysteresis_page)
