@@ -152,6 +152,9 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
         curve.opts["pen"].style() == QtCore.Qt.PenStyle.SolidLine
         for curve in plot.listDataItems()
     )
+    assert all(curve.opts["symbol"] is None for curve in plot.listDataItems())
+    assert all(curve.opts["connect"] == "all" for curve in plot.listDataItems())
+    assert all(curve.opts["antialias"] is True for curve in plot.listDataItems())
     ys = np.concatenate([p.yData for p in plot.listDataItems()])
     assert ys.min() < 0 < ys.max()
     for i in range(pages.hysteresis_view_combo.count()):
@@ -159,6 +162,8 @@ def test_v085_gui_response_and_hysteresis(tmp_path):
         curves = pages.hysteresis_plot_area.getItem(0, 0).listDataItems()
         assert curves
         assert all(curve.opts["pen"].style() == QtCore.Qt.PenStyle.SolidLine for curve in curves)
+        assert all(curve.opts["symbol"] is None for curve in curves)
+        assert all(curve.opts["connect"] == "all" for curve in curves)
     window.tabs.setCurrentIndex(0)
     pages.hysteresis_view_combo.setCurrentIndex(0)
     pages._prepare_hysteresis_plot_for_export()
@@ -194,7 +199,7 @@ def test_current_packaged_gui_is_v085():
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
     workflow = (root / ".github" / "workflows" / "build-windows.yml").read_text()
-    assert "APP_VERSION: V0.8.15" in workflow
+    assert "APP_VERSION: V0.8.16" in workflow
     assert 'Damper_Test_Data_Analyzer_$env:APP_VERSION' in workflow
     assert "Damper_Test_Data_Analyzer_${{ env.APP_VERSION }}.exe" in workflow
 
