@@ -14,6 +14,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      APP_VERSION: V0.8.15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,10 +29,10 @@ jobs:
         run: python tools/render_app_icon.py
       - name: Build executable
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name Damper_Test_Data_Analyzer --icon "src/cdc_analyzer/assets/damper_test_data_analyzer.png" --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters --add-data "src/cdc_analyzer/assets;cdc_analyzer/assets" launcher.py
+          pyinstaller --noconfirm --clean --windowed --onefile --name "Damper_Test_Data_Analyzer_$env:APP_VERSION" --icon "src/cdc_analyzer/assets/damper_test_data_analyzer.png" --paths src --collect-all pyqtgraph --hidden-import pyqtgraph.exporters --add-data "src/cdc_analyzer/assets;cdc_analyzer/assets" launcher.py
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
-          name: Damper_Test_Data_Analyzer_Windows
-          path: dist/Damper_Test_Data_Analyzer.exe
+          name: Damper_Test_Data_Analyzer_${{ env.APP_VERSION }}_Windows
+          path: dist/Damper_Test_Data_Analyzer_${{ env.APP_VERSION }}.exe
           if-no-files-found: error
