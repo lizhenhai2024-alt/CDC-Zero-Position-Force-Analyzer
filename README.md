@@ -1,11 +1,16 @@
-# CDC Test Data Analyzer
+# Damper Test Data Analyzer
+
+[![Tests](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/tests.yml/badge.svg?branch=dev-v0.5-i18n)](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/tests.yml)
+[![Build Windows EXE](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/build-windows.yml/badge.svg?branch=dev-v0.5-i18n)](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/build-windows.yml)
 
 富奥东机工减振器有限公司（FAWER-TOKICO SHOCK ABSORBER CO., LTD.）CDC / 电控减振器台架数据分析工具。
 
 - 编制：研发院技术中心　李振海
 - 发布日期：2026/9/7
 - 发布：第1版
+- 当前功能版本：`V0.8.14`
 - Python package version：`1.0.0`
+- GitHub 仓库：[lizhenhai2024-alt/Damper-Test-Data-Analyzer](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer)
 
 ## 核心功能
 
@@ -73,10 +78,14 @@ Windows 构建流程从富奥东机工减振器有限公司官方网站 `https:/
 ## 安装开发环境
 
 ```bash
+git clone https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer.git
+cd Damper-Test-Data-Analyzer
 python -m pip install -e ".[dev,gui]"
 pytest -q
 cdc-analyzer-gui
 ```
+
+Windows 单文件 EXE 由 [Build Windows EXE](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/build-windows.yml) 工作流自动构建，可在成功运行记录的 Artifacts 中下载。
 
 ## CLI 示例
 
