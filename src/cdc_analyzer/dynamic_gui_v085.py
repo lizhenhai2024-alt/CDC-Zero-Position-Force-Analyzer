@@ -24,6 +24,70 @@ def discover_hysteresis_dat_files(folder: str | Path) -> list[Path]:
 
 
 class DynamicPagesController(_BaseController):
+    _SUBSCRIPT_TRANSLATION = str.maketrans("0123456789-", "₀₁₂₃₄₅₆₇₈₉₋")
+
+    @classmethod
+    def _threshold_label(cls, symbol: str, fraction: float) -> str:
+        percent = f"{float(fraction) * 100:g}".translate(cls._SUBSCRIPT_TRANSLATION)
+        return f"{symbol}{percent}%"
+
+    def _build_response_page(self):
+        super()._build_response_page()
+        controls = self.response_page.layout().itemAt(0).layout()
+
+        self.response_force_start_label = QtWidgets.QLabel()
+        self.response_force_start_fraction = QtWidgets.QDoubleSpinBox()
+        self.response_force_start_fraction.setRange(0.1, 62.9)
+        self.response_force_start_fraction.setDecimals(1)
+        self.response_force_start_fraction.setSingleStep(0.5)
+        self.response_force_start_fraction.setValue(1.0)
+        self.response_force_start_fraction.setSuffix(" %")
+        self.response_force_start_fraction.setMaximumWidth(105)
+
+        self.response_show_f1 = QtWidgets.QCheckBox()
+        self.response_show_f1.setChecked(True)
+        self.response_show_f63 = QtWidgets.QCheckBox()
+        self.response_show_f63.setChecked(True)
+        self.response_show_f1.toggled.connect(self.refresh_response_plot)
+        self.response_show_f63.toggled.connect(self.refresh_response_plot)
+        self.response_force_start_fraction.valueChanged.connect(
+            self._update_response_threshold_texts
+        )
+        self.response_force_start_fraction.editingFinished.connect(
+            self._reanalyze_response_threshold
+        )
+
+        insert_at = controls.indexOf(self.response_trigger) + 1
+        for widget in (
+            self.response_force_start_label,
+            self.response_force_start_fraction,
+            self.response_show_f1,
+            self.response_show_f63,
+        ):
+            controls.insertWidget(insert_at, widget)
+            insert_at += 1
+
+    def _update_response_threshold_texts(self, *_args):
+        if not hasattr(self, "response_force_start_fraction"):
+            return
+        label = self._threshold_label(
+            "F", self.response_force_start_fraction.value() / 100.0
+        )
+        self.response_force_start_label.setText(
+            self._text("起始载荷阈值", "Initial force threshold")
+        )
+        self.response_show_f1.setText(
+            self._text(f"显示 {label}", f"Show {label}")
+        )
+        self.response_show_f63.setText(
+            self._text("显示 F₆₃%", "Show F₆₃%")
+        )
+
+    def _reanalyze_response_threshold(self):
+        self._update_response_threshold_texts()
+        if self.response_dataset is not None and self.response_result is not None:
+            self.analyze_response()
+
     def _font(self):
         font = QtGui.QFont(QtWidgets.QApplication.font())
         font.setPointSizeF(10.0)
@@ -71,6 +135,8 @@ class DynamicPagesController(_BaseController):
             [self.response_standard_label, self.response_standard],
             [self.response_target_speed_label, self.response_target_speeds],
             [self.response_trigger_label, self.response_trigger],
+            [self.response_force_start_label, self.response_force_start_fraction],
+            [self.response_show_f1, self.response_show_f63],
             [self.response_limit_label, self.response_t90_limit],
             [self.response_analyze_button],
         ], self.response_file_label, self.response_status)
@@ -134,6 +200,7 @@ class DynamicPagesController(_BaseController):
         self.speed_tolerance_label.setText(self._text("速度分组容差", "Speed grouping tolerance"))
         self.hysteresis_multi_file_button.setText(self._text("加载多速度迟滞数据…", "Load multi-speed hysteresis data…"))
         self.hysteresis_folder_button.setText(self._text("扫描迟滞数据文件夹…", "Scan hysteresis data folder…"))
+        self._update_response_threshold_texts()
         self._update_shared_source_labels()
         self.hysteresis_view_tabs.setTabText(0, self._text("图形分析", "Plot Analysis"))
         self.hysteresis_view_tabs.setTabText(1, self._text("结果数据", "Result Data"))
@@ -178,6 +245,11 @@ class DynamicPagesController(_BaseController):
             return
         t = data[TIME].to_numpy(float)
         t0 = float(row["t0 s"])
+        trigger_fraction = float(row.get("Trigger Fraction", 0.10))
+        force_start_fraction = float(row.get("Force Start Fraction", 0.01))
+        current_trigger_label = self._threshold_label("I", trigger_fraction)
+        force_start_label = self._threshold_label("F", force_start_fraction)
+        time_start_label = self._threshold_label("t", force_start_fraction)
         foreground = getattr(self.window, "_plot_foreground_color", "#202020")
         current = self.response_plot_area.addPlot(row=0, col=0)
         force = self.response_plot_area.addPlot(row=1, col=0)
@@ -196,18 +268,32 @@ class DynamicPagesController(_BaseController):
         current.setTitle(self._text("电流", "Current") + " | " + self._localized_stage(row.get("Stage", "")) + " | " + self._localized_direction(row.get("Direction", "")), size="10pt")
         for plot, values, levels, markers in (
             (current, data[CURRENT].to_numpy(float),
-             [("I₁₀%", row["Trigger Current A"]), ("I₁₀₀%", row["Current 100% A"])],
-             [("I₁₀%", t0)]),
+             [("", row["Trigger Current A"]), ("I₁₀₀%", row["Current 100% A"])],
+             [(current_trigger_label, t0)]),
             (force, data[LOAD].to_numpy(float) / 1000,
-             [(label, row[key] / 1000) for label, key in (("F₁%", "F1 N"), ("F₆₃%", "F63 N"), ("F₉₀%", "F90 N"), ("F₁₀₀%", "F100 N"))],
+             [
+                 (label, row[key] / 1000)
+                 for label, key, visible in (
+                     (force_start_label, "F1 N", self.response_show_f1.isChecked()),
+                     ("F₆₃%", "F63 N", self.response_show_f63.isChecked()),
+                     ("F₉₀%", "F90 N", True),
+                     ("F₁₀₀%", "F100 N", True),
+                 )
+                 if visible
+             ],
              [("t₀", t0)] + [(f"{label} = {row[key]:.2f} ms", t0 + row[key] / 1000)
-              for label, key in (("t₁%", "Dead Time t1 ms"), ("t₆₃%", "Switch Time t63 ms"), ("t₉₀%", "Switch Time t90 ms")) if np.isfinite(row[key])]),
+              for label, key, visible in (
+                  (time_start_label, "Dead Time t1 ms", self.response_show_f1.isChecked()),
+                  ("t₆₃%", "Switch Time t63 ms", self.response_show_f63.isChecked()),
+                  ("t₉₀%", "Switch Time t90 ms", True),
+              ) if visible and np.isfinite(row[key])]),
         ):
             annotations = IntersectionLabels(plot, self.pg, self._font(), foreground, self._marker_pen())
             level_x = t[0] + (t[-1] - t[0]) * 0.015
             for label, value in sorted(levels, key=lambda pair: -pair[1]):
                 annotations.guide(value, vertical=False)
-                annotations.label(label, level_x, value, level=True, placement="above-left")
+                if label:
+                    annotations.label(label, level_x, value, level=True, placement="above-left")
             xs, ys = [], []
             response_marker_index = 0
             for label, x in markers:

@@ -41,10 +41,10 @@ def _release_help_html(language: str) -> str:
         <h2>11. 响应时间 / Switching Time</h2>
         <p>BMW 与 Audi 用于选择客户评价 Profile，目标速度独立设置。可输入任意大于 0 的客户速度点，例如 0.1、0.3、0.6、1.0 m/s；多个速度用逗号分隔。响应时间页使用电流、阻尼力和速度三个同步时间图。</p>
         <ul>
-          <li><b>计时基准：</b>I₁₀% 是实测电流从起始平台到终止平台变化 10% 时的交点。t₁%、t₆₃%、t₉₀% 均为相应力阈值交点时刻减去 I₁₀% 电流交点时刻，单位 ms。</li>
+          <li><b>计时基准：</b>电流触发比例可设置，默认 10% 时显示 I₁₀%；图中的 I 下标与设置一致并跟随实际触发交点。各响应时间均为相应力阈值交点时刻减去电流触发交点时刻，单位 ms。</li>
           <li><b>Audi：</b>计算 F₁% / F₆₃% / F₉₀% 力响应、死区时间和力梯度，并检查 4 kHz 采样要求。</li>
           <li><b>BMW：</b>支持软→硬、软→中、硬→中、硬→软设定值跳变，输出 t₆₃% 与 t₉₀%。提供可见的电流触发比例设置，因为当前导入的 BMW 摘录没有给出该触发百分比的规范定义。</li>
-          <li><b>图形标注：</b>文字透明背景、正常字重，与坐标轴标题同为 10 pt。I₁₀% / I₁₀₀% 和 F₁% / F₆₃% / F₉₀% / F₁₀₀% 固定在各图左侧同一列；参考虚线保持连续。竖向参考线与实测曲线交点用圆点标出，t₁% / t₆₃% / t₉₀% 根据局部曲线方向交替布置在曲线两侧，并在缩放、平移时避让其它文字。</li>
+          <li><b>图形标注：</b>起始载荷阈值默认 1% 并可调整，F 与 t 的下标同步使用设置值。F 起始阈值和 F₆₃% 可分别勾选显示；取消后对应参考线、交点和时间文字同步隐藏。文字为透明背景、正常字重，与坐标轴标题同为 10 pt。</li>
           <li>若未输入客户 t₉₀% 限值，只报告测量值，不自动判定 PASS/FAIL。</li>
         </ul>
         <p><b>显示缩放：</b>使用 Qt 自动 DPI 缩放，支持 100% / 150%。工具栏自动换行；较小屏幕可滚动查看完整响应图，字体不会被二次放大或裁切。</p>
@@ -74,10 +74,10 @@ def _release_help_html(language: str) -> str:
         <h2>10. Response Time / Switching Time</h2>
         <p>BMW and Audi select the OEM evaluation profile; target speeds are configured independently. Any positive customer speeds may be entered, for example 0.1, 0.3, 0.6 and 1.0 m/s. The page shows synchronized current, damping-force and velocity traces.</p>
         <ul>
-          <li><b>Timing reference:</b>I₁₀% is the measured-current crossing at 10% of the change from the initial to final plateau. t₁%, t₆₃% and t₉₀% equal their force-threshold crossing time minus the I₁₀% current crossing time, in ms.</li>
+          <li><b>Timing reference:</b>The current trigger percentage is configurable; the default 10% setting is shown as I₁₀%. Its subscript follows the setting and its label follows the measured trigger intersection. Each response time is its force-threshold crossing time minus the current-trigger crossing time.</li>
           <li><b>Audi:</b>F₁% / F₆₃% / F₉₀% response, dead time and force gradients are reported; 4 kHz sampling is checked.</li>
           <li><b>BMW:</b>supports soft→hard, soft→medium, hard→medium and hard→soft setpoint changes and reports t₆₃% / t₉₀%. The current trigger fraction remains visible because the supplied BMW excerpt does not define that percentage.</li>
-          <li><b>Plot labels:</b>Transparent, normal-weight 10 pt text matches the axis titles. I₁₀% / I₁₀₀% and F₁% / F₆₃% / F₉₀% / F₁₀₀% share a fixed left column while dashed guides remain continuous. Circular markers identify intersections with measured current/force; t₁% / t₆₃% / t₉₀% alternate across the local force curve and relayout to avoid other text on zoom/resize.</li>
+          <li><b>Plot labels:</b>The initial force threshold defaults to 1% and is adjustable; the F and t subscripts follow its setting. The initial F threshold and F₆₃% can be shown independently. Clearing either option hides its guides, intersection and time label together. Labels use transparent, normal-weight 10 pt text.</li>
           <li>No PASS/FAIL is assigned without an entered project t₉₀% limit.</li>
         </ul>
         <p>Qt handles 100% / 150% display scaling. Controls wrap and the full response graph remains scrollable on smaller displays.</p>

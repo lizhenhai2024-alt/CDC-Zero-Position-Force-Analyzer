@@ -95,6 +95,24 @@ def test_force_thresholds_keep_f90_before_f100_in_response_direction(force_scale
     assert abs(f100 - f90) < abs(f100 - f63)
 
 
+def test_initial_force_threshold_is_operator_configurable():
+    result = analyze_response_time_v080(
+        _response_dataset(0.300),
+        ResponseConfig(
+            standard=ResponseStandard.BMW,
+            force_start_fraction=0.05,
+        ),
+        target_speeds_mps=(0.3,),
+    )
+    row = result.events.iloc[0]
+
+    assert row["Force Start Fraction"] == pytest.approx(0.05)
+    assert row["F1 N"] == pytest.approx(
+        row["F0 N"] + 0.05 * row["Delta F N"]
+    )
+    assert result.settings["Force Start Fraction"] == pytest.approx(0.05)
+
+
 def test_target_speed_parser_accepts_customer_lists():
     assert parse_target_speeds("0.1, 0.3; 0.6 1.0") == pytest.approx((0.1, 0.3, 0.6, 1.0))
     with pytest.raises(ValueError):
