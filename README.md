@@ -8,7 +8,7 @@
 - 编制：研发院技术中心　李振海
 - 发布日期：2026/9/7
 - 发布：第1版
-- 当前功能版本：`V0.8.16`
+- 当前功能版本：`V0.8.17`
 - Python package version：`1.0.0`
 - GitHub 仓库：[lizhenhai2024-alt/Damper-Test-Data-Analyzer](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer)
 
@@ -43,7 +43,7 @@
 - `.xlsx` 与 PNG 导出；菜单栏可选 150 / 300 / 600 PPI，默认 300 PPI。PNG 为无损位图，清晰度由导出像素尺寸与查看比例决定；打印或裁切请选择 600 PPI，并按 100% 比例检查原图。
 - Windows x86-64 单文件 EXE 自动构建
 
-## V0.8.16 响应阈值与迟滞数据导入
+## V0.8.17 响应阈值与迟滞数据导入
 
 - 自动适配 100% / 150% DPI，工具栏换行，小屏幕可滚动查看完整响应图。
 - 迟滞首图为电流—阻尼力共轴图，纵轴为“压缩<--阻尼力(N)-->复原”。
@@ -51,6 +51,7 @@
 - 迟滞分析中的阻尼力统一按整数显示和导出，内部计算继续保留完整精度。
 - 按实测速度独立计算迟滞，默认速度分组容差 3%，不跨速度配对或求平均。
 - 可选择单一速度的电流—阻尼力迟滞图，或单一电流的速度—阻尼力图；Excel 包含全部图，PNG 导出当前图。
+- 增加电流—迟滞力柱状图，按速度和压缩/复原方向分组，柱顶直接显示整数迟滞力值。
 - 可一次选择多个速度试验文件，程序隔离各文件的 Block ID 后统一进行实测速度分组。
 - PNG 和 Excel 导图前自动激活迟滞图形页并设置完整纵轴范围，压缩方向不会被裁切。
 - 导入新数据后，图形的 X/Y 轴列表只显示原始文件中实际存在且含有效数值的通道列；不显示 Block ID、Source Row、分析派生列或全空列。默认使用第 1 个通道作为 X 轴，其余通道作为 Y 轴。
@@ -59,7 +60,7 @@
 - 主界面“评价设置 → 评价方法”仅保留“窗口均值”和“目标位移穿越插值”，默认使用“窗口均值”；响应时间与迟滞页面继续保留各自的 BMW/Audi 客户规范选择。
 - 窗口基准固定为“总行程全宽”并隐藏该固定控件；窗口比例仍可设置。
 - 迟滞数据可一次选择多个文件，也可选择一个文件夹并递归扫描全部子文件夹中的 `.dat` 文件。
-- 详细使用说明见 [V0.8.16 使用说明](docs/V0.8.16_USER_GUIDE.md)。
+- 详细使用说明见 [V0.8.17 使用说明](docs/V0.8.17_USER_GUIDE.md)。
 
 ## 数据质量原则
 
@@ -82,7 +83,7 @@ pytest -q
 cdc-analyzer-gui
 ```
 
-Windows 单文件 EXE 由 [Build Windows EXE](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/build-windows.yml) 工作流自动构建，可在成功运行记录的 Artifacts 中下载。EXE 与 Artifact 文件名均包含软件版本，例如 `Damper_Test_Data_Analyzer_V0.8.16.exe`。
+Windows 单文件 EXE 由 [Build Windows EXE](https://github.com/lizhenhai2024-alt/Damper-Test-Data-Analyzer/actions/workflows/build-windows.yml) 工作流自动构建，可在成功运行记录的 Artifacts 中下载。EXE 与 Artifact 文件名均包含软件版本，例如 `Damper_Test_Data_Analyzer_V0.8.17.exe`。
 
 ## CLI 示例
 
