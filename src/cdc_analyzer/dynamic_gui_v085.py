@@ -447,8 +447,13 @@ class DynamicPagesController(_BaseController):
             speed = float(group["Speed Group m/s"].iloc[0])
             color_index = (0 if mode == "current" else speeds.index(speed) * 2) + (direction == "Compression")
             color = colors[color_index % len(colors)]
-            pen = self.pg.mkPen(color, width=1.5)
+            # Draw one uninterrupted polyline. Point symbols made the previous
+            # rendering look dashed at normal zoom even though the QPen style
+            # itself was SolidLine.
+            pen = self.pg.mkPen(color, width=2.0)
             pen.setStyle(QtCore.Qt.PenStyle.SolidLine)
+            pen.setCapStyle(QtCore.Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(QtCore.Qt.PenJoinStyle.RoundJoin)
             x_column = "Speed Group m/s" if mode == "current" else "Current Label A"
             # BMW uses ordered sweep points; Audi uses acquisition sequence to
             # retain its KFM excursions. Never connect different speed groups.
@@ -458,7 +463,14 @@ class DynamicPagesController(_BaseController):
             speed_name = "" if mode == "current" else f"{group['Speed Group m/s'].iloc[0]:.4g} m/s "
             sweep_name = self._text({"Up": "升电流", "Down": "降电流", "Sequence": "平台顺序"}[sweep], sweep)
             name = f"{speed_name}{self._localized_direction(direction)} {sweep_name}"
-            curve = plot.plot(group[x_column].to_numpy(float), y, pen=pen, symbol="o", symbolSize=5, symbolPen=color, symbolBrush=color, connect="finite")
+            curve = plot.plot(
+                group[x_column].to_numpy(float),
+                y,
+                pen=pen,
+                symbol=None,
+                connect="all",
+                antialias=True,
+            )
             legend_key = (speed_name, direction)
             if legend_key not in legend_keys:
                 legend.addItem(curve, f"{speed_name}{self._localized_direction(direction)}")
