@@ -193,6 +193,10 @@ def test_current_packaged_gui_is_v085():
     root = Path(__file__).resolve().parents[1]
     assert "gui_release_v085" in (root / "launcher.py").read_text()
     assert "gui_release_v085:main" in (root / "pyproject.toml").read_text()
+    workflow = (root / ".github" / "workflows" / "build-windows.yml").read_text()
+    assert "APP_VERSION: V0.8.15" in workflow
+    assert 'Damper_Test_Data_Analyzer_$env:APP_VERSION' in workflow
+    assert "Damper_Test_Data_Analyzer_${{ env.APP_VERSION }}.exe" in workflow
 
 
 def test_response_threshold_labels_follow_settings_and_visibility():
